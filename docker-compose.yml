@@ -1,0 +1,27 @@
+version: '3.4'
+
+services:
+  multiplayerpiano:
+    image: multiplayerpiano
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: production
+      MPP_PORT: ${PORT}
+      MPP_DEBUG: 'true'
+      MPP_MONGO_URI: mongodb://multiplayerpiano:27017
+    ports:
+      - ${PORT}:${PORT}
+  mongo:
+    image: 'mongo'
+    container_name: multiplayerpiano
+    command: ["--replSet", "replica"]
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./mongo-volume:/data/db
+    ports:
+      - 27017:27017
+    restart: unless-stopped

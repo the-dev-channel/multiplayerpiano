@@ -1,0 +1,15 @@
+{
+  "name": "multiplayerpiano",
+  "version": "1.0.0",
+  "description": "An online piano you can play alone or with others in real-time. MIDI support, 88 keys, velocity sensitive. You can show off your skill or chat while listening to others play.",
+  "main": "index.js",
+  "repository": "git@gitea.moe:Hri7566/multiplayerpiano.git",
+  "author": "Hri7566",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node .",
+    "build": "npx tsc",
+    "test": "npm run build && npm start"
+  }
+}
