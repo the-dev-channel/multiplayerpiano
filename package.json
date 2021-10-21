@@ -11,5 +11,12 @@
     "start": "node .",
     "build": "npx tsc",
     "test": "npm run build && npm start"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.2",
+    "typescript": "^4.4.4"
+  },
+  "dependencies": {
+    "dotenv": "^10.0.0"
   }
 }
