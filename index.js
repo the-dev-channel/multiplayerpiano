@@ -8,6 +8,6 @@ const MPP_PORT = process.env.MPP_PORT;
 
 console.log(MPP_PORT);
 
-const MPP = require('./src');
+const MPP = require('./build');
 
 MPP.Server.start();
