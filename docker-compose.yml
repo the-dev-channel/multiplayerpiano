@@ -8,11 +8,13 @@ services:
       dockerfile: ./Dockerfile
     environment:
       NODE_ENV: production
-      MPP_PORT: ${PORT}
+      MPP_HTTP_PORT: ${MPP_HTTP_PORT}
+      MPP_HTTPS_PORT: ${MPP_HTTPS_PORT}
       MPP_DEBUG: 'true'
       MPP_MONGO_URI: mongodb://multiplayerpiano:27017
     ports:
-      - ${PORT}:${PORT}
+      - ${MPP_HTTP_PORT}:${MPP_HTTP_PORT}
+      - ${MPP_HTTPS_PORT}:${MPP_HTTPS_PORT}
   mongo:
     image: 'mongo'
     container_name: multiplayerpiano
