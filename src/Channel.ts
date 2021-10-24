@@ -37,8 +37,40 @@ class Channel extends EventEmitter { // TODO channel
 }
 
 class ChannelSettings {
+    crownsolo?: boolean;
+    lobby: boolean;
+    color: string;
+    color2: string;
+    "owner_id": string;
+    "lyrical notes": boolean;
+
+    static VALID = {
+        "lobby": "boolean",
+        "visible": "boolean",
+        "chat": "boolean",
+        "crownsolo": "boolean",
+        "no cussing": "boolean",
+        "lyrical notes": "boolean",
+        "color": function(val) {
+            return typeof val === "string" && val.match(/^#[0-9a-f]{6}$/i);
+        },
+        "color2": function(val) {
+            return typeof val === "string" && val.match(/^#[0-9a-f]{6}$/i);
+        },
+        "owner_id": "string"
+    };
+
     constructor () {
 
+    }
+
+    static verify(settings) {
+        let good = false;
+        for (let i of Object.keys(settings)) {
+            if (typeof settings[i] === ChannelSettings.VALID[i]) {
+                
+            }
+        }
     }
 }
 
@@ -53,5 +85,6 @@ class Crown {
 }
 
 export {
-    Channel
+    Channel,
+    ChannelSettings
 }
