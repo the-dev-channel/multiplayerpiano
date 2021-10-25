@@ -1,5 +1,7 @@
 import { EventEmitter } from "stream";
 import { Client } from "./Client";
+import { Database } from "./Database";
+import { RateLimitChain } from "./RateLimit";
 import { Server } from "./Server";
 
 class Channel extends EventEmitter { // TODO channel
@@ -7,16 +9,28 @@ class Channel extends EventEmitter { // TODO channel
     _id: string;
     settings: ChannelSettings;
     connectedClients: Client[];
+    crown?: Crown;
 
-    constructor (server: Server, _id: string) {
+    constructor (server: Server, _id: string, set: any) {
         super();
 
         this.server = server;
-
-        this._id = _id;
         server.channels.set(this._id, this);
 
+        this._id = _id;
+        this.settings = new ChannelSettings(set);
+
+        if (!this.isLobby()) {
+            // TODO add crown to non-lobby rooms
+        }
+        
         this.bindEventListeners();
+    }
+
+    tick() {
+        if (this.connectedClients.length <= 0) {
+            this.server.destroyChannel(this._id);
+        }
     }
 
     bindEventListeners() {
@@ -26,7 +40,27 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     addClient(cl: Client) {
+        this.applyQuota(cl); // apply quota
         
+        // send channel data
+
+        cl.sendChannelMessage(this);
+
+        if (this.hasClient(cl)) return; // check if user already in room
+
+        this.connectedClients.push(cl);
+    }
+
+    hasClient(cl: Client) {
+        let has = this.connectedClients.find(c => cl.user._id == c.user._id) == undefined;
+        return typeof has !== 'undefined';
+    }
+
+    applyQuota(cl: Client) {
+        let q = new RateLimitChain(2500, 800);
+        let msg: any = q;
+        msg.m = 'nq';
+        cl.sendArray([msg]);
     }
 
     isLobby(): boolean {
@@ -34,15 +68,32 @@ class Channel extends EventEmitter { // TODO channel
 
         return reg.test(this._id);
     }
+
+    sendArray(arr: any[]) {
+        for (let cl of this.connectedClients) {
+            this.sendArray(arr);
+        }
+    }
+
+    getParticipantList() {
+        let ppl = [];
+
+        for (let cl of this.connectedClients) {
+            if (!cl.user) continue;
+            ppl.push(cl.user);
+        }
+
+        return ppl;
+    }
 }
 
 class ChannelSettings {
     crownsolo?: boolean;
-    lobby: boolean;
-    color: string;
-    color2: string;
-    "owner_id": string;
-    "lyrical notes": boolean;
+    lobby?: boolean;
+    color?: string;
+    color2?: string;
+    "owner_id"?: string;
+    "lyrical notes"?: boolean;
 
     static VALID = {
         "lobby": "boolean",
@@ -60,27 +111,44 @@ class ChannelSettings {
         "owner_id": "string"
     };
 
-    constructor () {
+    constructor (set) {
+        let def = Database.getDefaultChannelSettings();
+        for (let key of Object.keys(def)) {
+            this[key] = def[key];
+        }
 
-    }
-
-    static verify(settings) {
-        let good = false;
-        for (let i of Object.keys(settings)) {
-            if (typeof settings[i] === ChannelSettings.VALID[i]) {
-                
+        for (let key of Object.keys(set)) {
+            if (typeof set[key] === ChannelSettings.VALID[key]) {
+                this[key] = set[key];
             }
         }
     }
 }
 
+type Vector2 = {
+    x: number,
+    y: number
+}
+
 class Crown {
     _id: string;
     id: string;
+    endPos: Vector2;
+    startPos: Vector2;
     
-    constructor (user_id: string, partid: string) {
+    constructor (user_id: string, partid: string, x?: number, y?: number) {
         this._id = user_id;
         this.id = partid;
+
+        this.startPos = {
+            x: x || 50,
+            y: 50
+        }
+
+        this.endPos = {
+            x: 50,
+            y: y || 50
+        }
     }
 }
 

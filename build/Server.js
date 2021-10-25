@@ -17,6 +17,7 @@ var __extends = (this && this.__extends) || (function () {
 exports.__esModule = true;
 exports.Server = void 0;
 var EventEmitter = require("events");
+var Crypto_1 = require("./Crypto");
 var Database_1 = require("./Database");
 var WebServer_1 = require("./WebServer");
 var WebSocketServer_1 = require("./WebSocketServer");
@@ -28,7 +29,14 @@ var Server = /** @class */ (function (_super) {
     Server.prototype.bindEventListeners = function () {
         this.on('receive_userset', function (data) { });
     };
-    Server.prototype.findClient = function (_id) {
+    Server.prototype.findClientBy_ID = function (_id) {
+        var foundClient;
+        this.clients.forEach(function (cl, id) {
+            if (_id == cl.user._id) {
+                foundClient = cl;
+            }
+        });
+        return foundClient;
     };
     Server.prototype.start = function () {
         this.webServer = new WebServer_1.WebServer(this);
@@ -39,6 +47,18 @@ var Server = /** @class */ (function (_super) {
     };
     Server.prototype.destroyClient = function (id) {
         this.clients["delete"](id);
+    };
+    Server.prototype.destroyChannel = function (_id) {
+        this.channels["delete"](_id);
+    };
+    Server.prototype.generateNewUserID = function (cl) {
+        var newID = Crypto_1.Crypto.getTempID();
+        if (newID == cl.participantID)
+            this.generateNewUserID(cl);
+        this.clients.set(newID, cl);
+        this.clients["delete"](cl.participantID);
+        cl.participantID = newID;
+        return newID;
     };
     return Server;
 }(EventEmitter));

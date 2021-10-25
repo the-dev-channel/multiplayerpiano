@@ -2,8 +2,10 @@ import { IncomingMessage } from 'http';
 import { AddressInfo } from 'net';
 import { EventEmitter } from 'stream';
 import * as WebSocket from 'ws';
+import { Channel, ChannelSettings } from './Channel';
 import { Crypto } from './Crypto';
 import { Database, User } from './Database';
+import { RateLimit, RateLimitChain } from './RateLimit';
 import { Server } from './Server';
 
 class Client extends EventEmitter {
@@ -11,6 +13,8 @@ class Client extends EventEmitter {
     ws: WebSocket;
     participantID: string;
     user: User;
+    currentChannelID: string;
+    rateLimits: ClientRateLimits;
 
     constructor (server: Server, ws: WebSocket, req: IncomingMessage, id: string) {
         super();
@@ -25,14 +29,13 @@ class Client extends EventEmitter {
         
         Database.getUser(_id).then(val => {
             this.user = (val as User);
-            console.log(val);
         });
 
         this.ws = ws;
         this.bindEventListeners();
     }
 
-    bindEventListeners() {
+    bindEventListeners() { // TODO all event listeners
         this.ws.on('message', (data, isBinary) => {
             let d: any = data;
 
@@ -44,37 +47,44 @@ class Client extends EventEmitter {
                 let msgs = JSON.parse(d);
                 if (typeof msgs !== 'object') return;
                 for (let msg of msgs) {
-                    console.log(msg.m);
                     this.emit(msg.m, msg);
                 }
             } catch (err) {
-                if (err) console.error(err);
+
             }
         });
 
-        this.ws.on('close', () => {
+        this.ws.on('close', () => { //* finshed
             this.emit('bye');
         });
 
-        this.once('hi', msg => { // TODO hi
+        this.once('hi', msg => { //* finished
             this.sendHiMessage();
         });
 
-        this.on('bye', msg => { // TODO bye
-            console.debug('deleting user ' + this.participantID);
+        this.on('bye', msg => { //* finished
             this.server.destroyClient(this.participantID);
         });
 
         this.on('ch', msg => { // TODO ch
+            if (!msg._id) return;
+            if (typeof msg._id !== 'string') return;
+            let set: ChannelSettings = Database.getDefaultChannelSettings();
+            if (msg.set) set = msg.set; // TODO chset from ch
 
+            this.setChannel(msg._id, set);
         });
 
         this.on('n', (msg, admin) => { // TODO n
-
+            
         });
 
         this.on('m', (msg, admin) => { // TODO m
 
+        });
+
+        this.on('t', msg => { //* finished
+            this.sendTime();
         });
 
         this.on('userset', (msg, admin) => { // TODO userset
@@ -113,32 +123,83 @@ class Client extends EventEmitter {
         });
     }
 
-    async getOwnParticipant() { // TODO getOwnParticipant
-        return await Database.getPublicUser(this.user._id)
+    getOwnParticipant() { //* finished
+        let u = this.user;
+        delete u.flags;
+        return u;
     }
 
-    async sendHiMessage() {
-        console.log('sending hi message');
+    sendHiMessage() { //* finished
         this.sendArray([{
             m: 'hi',
             motd: "galvanized saga",
-            u: await this.getOwnParticipant(),
+            u: this.getOwnParticipant(),
             v: '3.0'
         }]);
     }
 
-    sendArray(msgarr: any[]) {
-        console.log(msgarr);
+    sendTime() { //* finished
+        this.sendArray([{
+            m: 't',
+            e: Date.now()
+        }]);
+    }
+
+    sendArray(msgarr: any[]) { //* finished
         let json = JSON.stringify(msgarr);
         this.send(json);
     }
 
-    send(json: string) {
+    send(json: string) { //* finished
         try {
             this.ws.send(json);
-            console.log(json);
         } catch (err) {
-            console.error(err);
+            
+        }
+    }
+
+    setChannel(_id: string, set?: ChannelSettings) { // TODO setChannel
+        if (this.server.channels.has(_id)) {
+            this.server.channels.get(_id).addClient(this);
+        } else {
+            let ch = new Channel(this.server, _id, set);
+        }
+    }
+
+    sendChannelMessage(ch: Channel) {
+        let msg = {
+            m: 'ch',
+            ch: {
+                settings: ch.settings,
+                _id: ch._id,
+                count: ch.connectedClients.length,
+                crown: ch.crown
+            },
+            ppl: ch.getParticipantList(),
+            p: this.participantID
+        }
+
+        this.sendArray([msg]);
+    }
+
+    sendData(data) { // TODO admin data
+        data.m = 'data';
+        this.sendArray([data]);
+    }
+}
+
+class ClientRateLimits {
+    m: RateLimit;
+    ch: RateLimit;
+    chset: RateLimit;
+    nq: RateLimitChain;
+    t: RateLimit;
+
+    constructor () {
+        let data = Database.getDefaultClientRateLimits();
+        
+        for (let key of Object.keys(data)) {
+            this[key] = data[key];
         }
     }
 }

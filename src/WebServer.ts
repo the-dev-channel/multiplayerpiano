@@ -4,6 +4,10 @@ import { WebSocketServer } from './WebSocketServer';
 import https = require('https');
 import http = require('http');
 import { join } from 'path';
+import { readFile as rf } from 'fs';
+import { promisify } from 'util';
+
+const readFile = promisify(rf);
 
 const MPP_HTTPS_ENABLED = process.env.MPP_HTTPS_ENABLED;
 const MPP_HTTPS_PORT = process.env.MPP_HTTPS_PORT;
@@ -30,6 +34,11 @@ class WebServer {
         router.use(express.static('./sounds'));
 
         this.app.use('/sounds', router);
+
+        this.app.get('*', async (req, res) => {
+            res.send(await readFile(join('static', 'index.html')));
+            res.end();
+        });
 
         let enableHttps = MPP_HTTPS_ENABLED == "true";
         let enableHttp = MPP_HTTP_ENABLED == "true";

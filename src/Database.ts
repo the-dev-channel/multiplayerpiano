@@ -4,6 +4,8 @@ import { Crypto } from './Crypto';
 import { User } from './models/User';
 import { Server } from './Server';
 import { readFileSync } from 'fs';
+import { Color } from './Color';
+import { RateLimit, RateLimitChain } from './RateLimit';
 
 const MPP_DEFAULT_USERNAME = process.env.MPP_DEFAULT_USERNAME || 'Anonymous';
 const MPP_MONGO_URI = process.env.MPP_MONGO_URI;
@@ -56,6 +58,7 @@ class Database {
 
     static async createUser(_id: string) {
         let color = Crypto.getColorFromID(_id);
+        
         let user: Document & any = {
             _id: _id,
             name: MPP_DEFAULT_USERNAME,
@@ -64,6 +67,7 @@ class Database {
                 "no chat rate limit": false
             }
         }
+
         this.userCollection.insertOne(user);
     }
 
@@ -93,6 +97,29 @@ class Database {
     static getMOTD() {
         // let motd = "test";
         // return motd;
+    }
+
+    static getDefaultChannelSettings() {
+        let color = new Color(59, 80, 84);
+        let color2 = color;
+        color2.add(-64, -64, -64);
+        return {
+            crownsolo: false,
+            lobby: false,
+            visible: true,
+            color: color.toHexa(),
+            color2: color2.toHexa()
+        }
+    }
+
+    static getDefaultClientRateLimits() {
+        return {
+            nq: new RateLimitChain(8000, 24000),
+            m: new RateLimit(1000 / 20),
+            ch: new RateLimit(1000),
+            chset: new RateLimit(1500),
+            t: new RateLimit(20)
+        }
     }
 }
 

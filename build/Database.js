@@ -39,6 +39,8 @@ exports.__esModule = true;
 exports.Database = void 0;
 var mongodb_1 = require("mongodb");
 var Crypto_1 = require("./Crypto");
+var Color_1 = require("./Color");
+var RateLimit_1 = require("./RateLimit");
 var MPP_DEFAULT_USERNAME = process.env.MPP_DEFAULT_USERNAME || 'Anonymous';
 var MPP_MONGO_URI = process.env.MPP_MONGO_URI;
 var Database = /** @class */ (function () {
@@ -166,6 +168,27 @@ var Database = /** @class */ (function () {
     Database.getMOTD = function () {
         // let motd = "test";
         // return motd;
+    };
+    Database.getDefaultChannelSettings = function () {
+        var color = new Color_1.Color(59, 80, 84);
+        var color2 = color;
+        color2.add(-64, -64, -64);
+        return {
+            crownsolo: false,
+            lobby: false,
+            visible: true,
+            color: color.toHexa(),
+            color2: color2.toHexa()
+        };
+    };
+    Database.getDefaultClientRateLimits = function () {
+        return {
+            nq: new RateLimit_1.RateLimitChain(8000, 24000),
+            m: new RateLimit_1.RateLimit(1000 / 20),
+            ch: new RateLimit_1.RateLimit(1000),
+            chset: new RateLimit_1.RateLimit(1500),
+            t: new RateLimit_1.RateLimit(20)
+        };
     };
     Database.client = new mongodb_1.MongoClient(MPP_MONGO_URI);
     Database.ready = false;

@@ -11,14 +11,15 @@ services:
       MPP_HTTP_PORT: ${MPP_HTTP_PORT}
       MPP_HTTPS_PORT: ${MPP_HTTPS_PORT}
       MPP_DEBUG: 'true'
-      MPP_MONGO_URI: mongodb://multiplayerpiano:27017
+      MPP_MONGO_URI: mongodb://mongo:27017/multiplayerpiano
+      MPP_SALT: ${MPP_SALT}
     ports:
       - ${MPP_HTTP_PORT}:${MPP_HTTP_PORT}
       - ${MPP_HTTPS_PORT}:${MPP_HTTPS_PORT}
   mongo:
     image: 'mongo'
-    container_name: multiplayerpiano
-    command: ["--replSet", "replica"]
+    container_name: multiplayerpiano-mongodb
+    # command: ["--replSet", "replica"]
     environment:
       - PUID=1000
       - PGID=1000
