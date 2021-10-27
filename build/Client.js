@@ -66,6 +66,8 @@ var Client = /** @class */ (function (_super) {
             _this.server.destroyClient(_this.participantID);
         });
         this.on('ch', function (msg) {
+            console.log('---ch debug---');
+            console.log(msg);
             if (!msg._id)
                 return;
             if (typeof msg._id !== 'string')
@@ -137,14 +139,17 @@ var Client = /** @class */ (function (_super) {
         }
     };
     Client.prototype.setChannel = function (_id, set) {
+        console.log('set channel called');
         if (this.server.channels.has(_id)) {
             this.server.channels.get(_id).addClient(this);
         }
         else {
             var ch = new Channel_1.Channel(this.server, _id, set);
+            ch.addClient(this);
         }
     };
     Client.prototype.sendChannelMessage = function (ch) {
+        console.log('sending channel message');
         var msg = {
             m: 'ch',
             ch: {

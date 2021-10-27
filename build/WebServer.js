@@ -65,8 +65,8 @@ var WebServer = /** @class */ (function () {
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = (_a = res).send;
-                        return [4 /*yield*/, readFile((0, path_1.join)('static', 'index.html'))];
+                        _b = (_a = res).write;
+                        return [4 /*yield*/, readFile((0, path_1.join)('static', 'index.html').toString())];
                     case 1:
                         _b.apply(_a, [_c.sent()]);
                         res.end();

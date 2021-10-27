@@ -67,6 +67,8 @@ class Client extends EventEmitter {
         });
 
         this.on('ch', msg => { // TODO ch
+            console.log('---ch debug---')
+            console.log(msg);
             if (!msg._id) return;
             if (typeof msg._id !== 'string') return;
             let set: ChannelSettings = Database.getDefaultChannelSettings();
@@ -159,14 +161,17 @@ class Client extends EventEmitter {
     }
 
     setChannel(_id: string, set?: ChannelSettings) { // TODO setChannel
+        console.log('set channel called');
         if (this.server.channels.has(_id)) {
             this.server.channels.get(_id).addClient(this);
         } else {
             let ch = new Channel(this.server, _id, set);
+            ch.addClient(this);
         }
     }
 
     sendChannelMessage(ch: Channel) {
+        console.log('sending channel message');
         let msg = {
             m: 'ch',
             ch: {

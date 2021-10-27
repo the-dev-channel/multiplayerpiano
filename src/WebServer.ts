@@ -36,7 +36,7 @@ class WebServer {
         this.app.use('/sounds', router);
 
         this.app.get('*', async (req, res) => {
-            res.send(await readFile(join('static', 'index.html')));
+            res.write(await readFile(join('static', 'index.html').toString()));
             res.end();
         });
 
