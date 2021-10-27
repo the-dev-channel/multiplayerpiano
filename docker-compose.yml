@@ -24,7 +24,11 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      - ./mongo-volume:/data/db
+      - mppdb:/data/db
     ports:
       - 27017:27017
     restart: unless-stopped
+
+volumes:
+  mppdb:
+    
