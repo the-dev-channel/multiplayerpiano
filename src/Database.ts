@@ -100,9 +100,13 @@ class Database {
     }
 
     static getDefaultChannelSettings() {
+        console.log('getting default channel settings');
         let color = new Color(59, 80, 84);
+        console.log('color1 got');
         let color2 = color;
+        console.log('color2 got');
         color2.add(-64, -64, -64);
+        console.log('color2 added');
         return {
             crownsolo: false,
             lobby: false,

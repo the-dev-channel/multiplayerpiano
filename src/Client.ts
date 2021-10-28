@@ -67,13 +67,17 @@ class Client extends EventEmitter {
         });
 
         this.on('ch', msg => { // TODO ch
-            console.log('---ch debug---')
+            console.log('---ch debug---');
             console.log(msg);
             if (!msg._id) return;
+            console.log('has _id')
             if (typeof msg._id !== 'string') return;
+            console.log('_id is string');
             let set: ChannelSettings = Database.getDefaultChannelSettings();
+            console.log('got default settings');
             if (msg.set) set = msg.set; // TODO chset from ch
-
+            console.log("set: ");
+            console.log(set);
             this.setChannel(msg._id, set);
         });
 
