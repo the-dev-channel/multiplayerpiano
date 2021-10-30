@@ -11,7 +11,7 @@ services:
       MPP_HTTP_PORT: ${MPP_HTTP_PORT}
       MPP_HTTPS_PORT: ${MPP_HTTPS_PORT}
       MPP_DEBUG: 'true'
-      MPP_MONGO_URI: mongodb://mongo:27017/multiplayerpiano
+      MPP_MONGO_URI: mongodb://mongo:${MPP_MONGO_PORT}/multiplayerpiano
       MPP_SALT: ${MPP_SALT}
     ports:
       - ${MPP_HTTP_PORT}:${MPP_HTTP_PORT}
@@ -26,7 +26,7 @@ services:
     volumes:
       - mppdb:/data/db
     ports:
-      - 27017:27017
+      - ${MPP_MONGO_PORT}:27017
     restart: unless-stopped
 
 volumes:
