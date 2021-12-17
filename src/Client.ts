@@ -24,7 +24,7 @@ class Client extends EventEmitter {
         this.server = server;
         this.participantID = id;
 
-        let _id = Crypto.getUser_ID((req.socket.address() as AddressInfo).address);
+        let _id = Crypto.getUser_ID(req.socket.remoteAddress.substring('::ffff:'.length));
 
         let user: any = Database.getDefaultUser();
         user._id = _id;
@@ -77,6 +77,7 @@ class Client extends EventEmitter {
         });
 
         this.on('ch', msg => { // TODO ch
+            if (this.ws.readyState !== WebSocket.OPEN) return;
             // console.log('---ch debug---');
             // console.log(msg);
             if (!msg._id) return;
@@ -157,41 +158,19 @@ class Client extends EventEmitter {
 
         this.on('userset', (msg, admin) => { // TODO userset
             if (!msg.set) return;
-            if (typeof msg.set !== 'object') return;
-
+            if (!msg.set.name && !msg.set.color) return;
+            if (typeof msg.set.name !== 'string') return;
+            if (msg.color && typeof msg.color !== 'string') return;
+            if (msg.set.name.length > 40) return;
             
-            let _idToSet = this.getOwnParticipant()._id;
-            let ch = this.server.channels.get(this.currentChannelID);
-            
-            if (admin) {
-                if (msg._id) {
-                    if (typeof msg._id == 'string') _idToSet = msg._id;
-                }
+            let colorEnabled = false;
+            let isAdmin = false;
+            if (colorEnabled && msg.set.color) {
+                // check color regex
+                if (!/^#[0-9a-f]{6}$/i.test(msg.set.color)) return;
             }
-            
-            try {
-                Database.getUser(_idToSet).then(user => {
-                    if (msg.set.name) {
-                        if (typeof msg.set.name == 'string') user.name = msg.set.name;
-                    }
-                    // check color regex
-                    if (msg.set.color) {
-                        if (typeof msg.set.color == 'string') {
-                            if (msg.set.color.match(/^#[0-9a-f]{6}$/i)) {
-                                user.color = msg.set.color;
-                            }
-                        }
-                    }
-                    user.color = msg.set.color;
 
-                    Database.updateUser(_idToSet, user).then(() => {
-                        let publicuser = this.getOwnParticipant();
-                        ch.sendUserUpdate(publicuser, this.cursor.x, this.cursor.y);
-                    });
-                });
-            } catch (err) {
-
-            }
+            this.userset({name: msg.set.name, color: msg.set.color}, isAdmin);
         });
 
         this.on('chset', (msg, admin) => { // TODO chset
@@ -252,11 +231,11 @@ class Client extends EventEmitter {
 
     restartIdleTimeout() {
         // console.log('restarting idle timeout for ' + this.participantID);
-        clearTimeout(this.idleTimeout);
-        this.idleTimeout = setTimeout(() => {
-            // console.log('idle timeout reached for ' + this.participantID);
-            this.emit('bye');
-        }, 30000);
+        // clearTimeout(this.idleTimeout);
+        // this.idleTimeout = setTimeout(() => {
+        //     // console.log('idle timeout reached for ' + this.participantID);
+        //     this.emit('bye');
+        // }, 30000);
     }
 
     sendArray(msgarr: any[]) { //* finished
@@ -297,6 +276,32 @@ class Client extends EventEmitter {
         }
     }
 
+    sendChatHistory(c: any[]) {
+        this.sendArray([{
+            m: 'c',
+            c: c
+        }]);
+    }
+
+    async userset(set: any, admin: boolean = false, _id?: string) {
+        let _idToGet = this.getOwnParticipant()._id;
+        if (admin && _id) _idToGet = _id;
+        let user = await Database.getUser(_idToGet);
+        if (!user) return;
+        if (set.name) user.name = set.name;
+        if (set.color && admin) user.color = set.color;
+
+        await Database.updateUser(_idToGet, user);
+
+        this.user.name = user.name;
+        this.user.color = user.color;
+
+        let ch = this.server.channels.get(this.currentChannelID);
+        if (ch) {
+            ch.sendUserUpdate(this.getOwnParticipant(), this.cursor.x, this.cursor.y);
+        }
+    }
+
     setChannel(_id: string, set?: ChannelSettings) { // TODO setChannel
         // console.log('set channel called', this.server.channels);
         // check if server has channel
@@ -333,6 +338,10 @@ class Client extends EventEmitter {
         this.sendArray([msg]);
     }
 
+    subscribeToChannelList() { // TODO channel listing and subscribing
+        
+    }
+
     sendParticipantMessage(p, cursor) {
         let msg = {
             m: 'p',
@@ -343,13 +352,14 @@ class Client extends EventEmitter {
             x: cursor.x,
             y: cursor.y
         }
+
+        this.sendArray([msg]);
     }
 
     sendData(data) { // TODO admin data
         data.m = 'data';
         this.sendArray([data]);
     }
-
 }
 
 class ClientRateLimits {
@@ -361,7 +371,7 @@ class ClientRateLimits {
 
     constructor () {
         let data = Database.getDefaultClientRateLimits();
-        
+
         for (let key of Object.keys(data)) {
             this[key] = data[key];
         }
@@ -376,6 +386,11 @@ class Cursor {
         this.x = x;
         this.y = y;
     }
+}
+
+interface Userset {
+    name?: string;
+    color?: string;
 }
 
 export {

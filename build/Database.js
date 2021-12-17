@@ -73,7 +73,9 @@ var Database = /** @class */ (function () {
                         if (!this.ready)
                             return [2 /*return*/, {
                                     color: '#ffffff',
-                                    name: MPP_DEFAULT_USERNAME
+                                    name: MPP_DEFAULT_USERNAME,
+                                    _id: _id,
+                                    flags: {}
                                 }];
                         return [4 /*yield*/, this.userExists(_id)];
                     case 1:
@@ -85,6 +87,7 @@ var Database = /** @class */ (function () {
                     case 3: return [4 /*yield*/, this.userCollection.findOne({ _id: _id })];
                     case 4:
                         user = (_a.sent());
+                        // console.log(user);
                         return [2 /*return*/, user];
                 }
             });
@@ -98,6 +101,7 @@ var Database = /** @class */ (function () {
                     case 0: return [4 /*yield*/, this.getUser(_id)];
                     case 1:
                         user = (_a.sent());
+                        // console.log(user);
                         return [2 /*return*/, {
                                 name: user.name,
                                 _id: user._id,

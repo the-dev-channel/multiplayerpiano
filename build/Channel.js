@@ -60,10 +60,12 @@ var Channel = /** @class */ (function (_super) {
             this.connectedClients.push(cl);
         }
         this.sendChannelMessageAll();
+        cl.sendChatHistory(this.chatHistory);
     };
     Channel.prototype.removeClient = function (cl) {
         this.connectedClients.splice(this.connectedClients.indexOf(cl), 1);
-        this.sendChannelMessageAll();
+        // this.sendChannelMessageAll();
+        this.sendByeMessageAll(cl.participantID);
     };
     Channel.prototype.hasClient = function (cl) {
         var p1 = cl.getOwnParticipant();
@@ -77,6 +79,7 @@ var Channel = /** @class */ (function (_super) {
         return false;
     };
     Channel.prototype.sendChat = function (p, clmsg) {
+        // TODO chat quota
         var msg = {
             m: 'a',
             a: clmsg.message,
@@ -111,7 +114,7 @@ var Channel = /** @class */ (function (_super) {
             m: 'm',
             x: x,
             y: y,
-            id: p._id
+            id: p.id
         };
         this.sendArray([msg]);
     };
@@ -121,6 +124,12 @@ var Channel = /** @class */ (function (_super) {
             var cl = _a[_i];
             cl.sendChannelMessage(this);
         }
+    };
+    Channel.prototype.sendByeMessageAll = function (id) {
+        this.sendArray([{
+                m: 'bye',
+                id: id
+            }]);
     };
     Channel.prototype.applyQuota = function (cl) {
         var q = new RateLimit_1.RateLimitChain(2500, 800);
@@ -138,16 +147,11 @@ var Channel = /** @class */ (function (_super) {
             cl.sendArray(arr);
         }
     };
-    Channel.prototype.sendUserUpdate = function (user, cursorX, cursorY) {
-        this.sendArray([{
-                m: 'p',
-                _id: user._id,
-                name: user.name,
-                color: user.color,
-                id: user._id,
-                x: cursorX,
-                y: cursorY
-            }]);
+    Channel.prototype.sendUserUpdate = function (user, x, y) {
+        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
+            var cl = _a[_i];
+            cl.sendParticipantMessage(user, { x: x, y: y });
+        }
     };
     Channel.prototype.getParticipantList = function () {
         // console.log('getting participant list');

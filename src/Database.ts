@@ -32,18 +32,24 @@ class Database {
     static async getUser(_id: string) {
         if (!this.ready) return {
             color: '#ffffff',
-            name: MPP_DEFAULT_USERNAME
+            name: MPP_DEFAULT_USERNAME,
+            _id: _id,
+            flags: {
+
+            }
         }
         if (await this.userExists(_id) == false) {
             await this.createUser(_id);
         }
 
-        let user = (await this.userCollection.findOne({_id: _id})) as User;
+        let user: User = (await this.userCollection.findOne({_id: _id})) as any;
+        // console.log(user);
         return user;
     }
 
     static async getPublicUser(_id: string) {
         let user = (await this.getUser(_id)) as any;
+        // console.log(user);
         return {
             name: user.name,
             _id: user._id,

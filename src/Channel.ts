@@ -60,11 +60,13 @@ class Channel extends EventEmitter { // TODO channel
         }
 
         this.sendChannelMessageAll();
+        cl.sendChatHistory(this.chatHistory);
     }
 
     removeClient(cl: Client) {
         this.connectedClients.splice(this.connectedClients.indexOf(cl), 1);
-        this.sendChannelMessageAll();
+        // this.sendChannelMessageAll();
+        this.sendByeMessageAll(cl.participantID);
     }
 
     hasClient(cl: Client): boolean {
@@ -79,6 +81,7 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     sendChat(p: PublicUser, clmsg: any): void {
+        // TODO chat quota
         let msg = {
             m: 'a',
             a: clmsg.message,
@@ -119,7 +122,7 @@ class Channel extends EventEmitter { // TODO channel
             m: 'm',
             x: x,
             y: y,
-            id: p._id
+            id: p.id
         }
 
         this.sendArray([msg]);
@@ -130,6 +133,13 @@ class Channel extends EventEmitter { // TODO channel
         for (let cl of this.connectedClients) {
             cl.sendChannelMessage(this);
         }
+    }
+
+    sendByeMessageAll(id: string): void {
+        this.sendArray([{
+            m: 'bye',
+            id: id
+        }]);
     }
 
     applyQuota(cl: Client) {
@@ -150,16 +160,10 @@ class Channel extends EventEmitter { // TODO channel
         }
     }
 
-    sendUserUpdate(user: User | PublicUser, cursorX?: number, cursorY?: number) {
-        this.sendArray([{
-            m: 'p',
-            _id: user._id,
-            name: user.name,
-            color: user.color,
-            id: user._id,
-            x: cursorX,
-            y: cursorY
-        }]);
+    sendUserUpdate(user: User | PublicUser, x?: number, y?: number) {
+        for (let cl of this.connectedClients) {
+            cl.sendParticipantMessage(user, {x: x, y: y});
+        }
     }
 
     getParticipantList() {
