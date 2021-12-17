@@ -1,6 +1,7 @@
 import { EventEmitter } from "stream";
 import { Client } from "./Client";
 import { Database } from "./Database";
+import { PublicUser, User } from "./models/User";
 import { RateLimitChain } from "./RateLimit";
 import { Server } from "./Server";
 
@@ -10,19 +11,29 @@ class Channel extends EventEmitter { // TODO channel
     settings: ChannelSettings;
     connectedClients: Client[];
     crown?: Crown;
+    chatHistory: any[];
 
-    constructor (server: Server, _id: string, set: any) {
+    constructor (server: Server, _id: string, set: any, p?: PublicUser, crownX?: number, crownY?: number) {
         super();
 
         this.server = server;
+        this.connectedClients = [];
         server.channels.set(this._id, this);
 
         this._id = _id;
         this.settings = new ChannelSettings(set);
 
-        if (!this.isLobby()) {
+        if (this.isLobby()) {
+            this.settings.lobby = true;
+            let colors = Database.getDefaultLobbySettings();
+            this.settings.color = colors.color;
+            this.settings.color2 = colors.color2;
+        } else {
             // TODO add crown to non-lobby rooms
+            this.crown = new Crown(p._id, p.id, crownX || 50, crownY || 50);
         }
+
+        this.chatHistory = [];
         
         this.bindEventListeners();
     }
@@ -40,20 +51,85 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     addClient(cl: Client) {
-        this.applyQuota(cl); // apply quota
-        
-        // send channel data
+        this.applyQuota(cl);
 
-        cl.sendChannelMessage(this);
+        if (this.hasClient(cl)) {
+            this.connectedClients[this.connectedClients.indexOf(this.connectedClients.find(c => c.user._id == cl.user._id))] = cl;
+        } else {
+            this.connectedClients.push(cl);
+        }
 
-        if (this.hasClient(cl)) return; // check if user already in room
-
-        this.connectedClients.push(cl);
+        this.sendChannelMessageAll();
     }
 
-    hasClient(cl: Client) {
-        let has = this.connectedClients.find(c => cl.user._id == c.user._id) == undefined;
-        return typeof has !== 'undefined';
+    removeClient(cl: Client) {
+        this.connectedClients.splice(this.connectedClients.indexOf(cl), 1);
+        this.sendChannelMessageAll();
+    }
+
+    hasClient(cl: Client): boolean {
+        let p1 = cl.getOwnParticipant();
+        for (let c of this.connectedClients) {
+            let p2 = c.getOwnParticipant();
+            if (p1._id == p2._id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    sendChat(p: PublicUser, clmsg: any): void {
+        let msg = {
+            m: 'a',
+            a: clmsg.message,
+            p: p,
+            t: Date.now()
+        }
+
+        this.chatHistory.push(msg);
+
+        this.sendArray([msg]);
+    }
+
+    sendNoteMessage(p: PublicUser, clmsg: any): void {
+        // TODO channel note messages
+
+        for (let note of clmsg.n) {
+            note.d = note.d ? note.d : 0;
+        }
+
+        // console.log(clmsg);
+
+        let msg = {
+            m: 'n',
+            t: clmsg.t,
+            n: clmsg.n,
+            p: p.id
+        }
+        
+        for (let cl of this.connectedClients) {
+            if (cl.getOwnParticipant().id !== p.id) {
+                cl.sendArray([msg]);
+            }
+        }
+    }
+
+    sendCursorPosition(p: User | PublicUser, x: number, y: number): void {
+        let msg = {
+            m: 'm',
+            x: x,
+            y: y,
+            id: p._id
+        }
+
+        this.sendArray([msg]);
+    }
+
+    sendChannelMessageAll() {
+        // console.log(this.server.channels);
+        for (let cl of this.connectedClients) {
+            cl.sendChannelMessage(this);
+        }
     }
 
     applyQuota(cl: Client) {
@@ -65,23 +141,37 @@ class Channel extends EventEmitter { // TODO channel
 
     isLobby(): boolean {
         let reg = /^(lobby[0-9].*|test\/([A-z]{1,})|lobby$)/;
-
         return reg.test(this._id);
     }
 
     sendArray(arr: any[]) {
         for (let cl of this.connectedClients) {
-            this.sendArray(arr);
+            cl.sendArray(arr);
         }
     }
 
-    getParticipantList() {
-        let ppl = [];
+    sendUserUpdate(user: User | PublicUser, cursorX?: number, cursorY?: number) {
+        this.sendArray([{
+            m: 'p',
+            _id: user._id,
+            name: user.name,
+            color: user.color,
+            id: user._id,
+            x: cursorX,
+            y: cursorY
+        }]);
+    }
 
+    getParticipantList() {
+        // console.log('getting participant list');
+        let ppl = [];
+        
         for (let cl of this.connectedClients) {
-            if (!cl.user) continue;
-            ppl.push(cl.user);
+            if (!cl.getOwnParticipant()) continue;
+            ppl.push(cl.getOwnParticipant());
         }
+
+        // console.log('ppl: ', ppl);
 
         return ppl;
     }
@@ -131,14 +221,14 @@ type Vector2 = {
 }
 
 class Crown {
-    _id: string;
-    id: string;
+    userId: string;
+    participantId?: string;
     endPos: Vector2;
     startPos: Vector2;
     
-    constructor (user_id: string, partid: string, x?: number, y?: number) {
-        this._id = user_id;
-        this.id = partid;
+    constructor (user_id: string, partid?: string, x?: number, y?: number) {
+        this.userId = user_id;
+        this.participantId = partid;
 
         this.startPos = {
             x: x || 50,

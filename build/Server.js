@@ -42,10 +42,14 @@ var Server = /** @class */ (function (_super) {
         this.webServer = new WebServer_1.WebServer(this);
         this.wsServer = new WebSocketServer_1.WebSocketServer(this);
         this.clients = new Map();
+        this.channels = new Map();
         Database_1.Database.setup(this);
         this.bindEventListeners();
     };
-    Server.prototype.destroyClient = function (id) {
+    Server.prototype.destroyClient = function (cl) {
+        this.clients["delete"](cl.participantID);
+    };
+    Server.prototype.destroyClientByParticipantID = function (id) {
         this.clients["delete"](id);
     };
     Server.prototype.destroyChannel = function (_id) {

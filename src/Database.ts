@@ -100,20 +100,33 @@ class Database {
     }
 
     static getDefaultChannelSettings() {
-        console.log('getting default channel settings');
+        // console.log('getting default channel settings');
         let color = new Color(59, 80, 84);
-        console.log('color1 got');
-        let color2 = color;
-        console.log('color2 got');
+        // console.log('color1 got');
+        let color2 = new Color(color.toHexa());
+        // console.log('color2 got');
         color2.add(-64, -64, -64);
-        console.log('color2 added');
+        // console.log('color2 added');
         return {
             crownsolo: false,
             lobby: false,
             visible: true,
             color: color.toHexa(),
-            color2: color2.toHexa()
+            color2: color2.toHexa(),
+            chat: true
         }
+    }
+
+    static getDefaultLobbySettings() {
+        let set = this.getDefaultChannelSettings();
+        set.lobby = true;
+        set.color = '#73b3cc';
+        // set.color = "#677586";
+        // let color2 = new Color(set.color);
+        // color2.add(-64, -64, -64);
+        // set.color2 = color2.toHexa();
+        set.color2 = "#273546";
+        return set;
     }
 
     static getDefaultClientRateLimits() {

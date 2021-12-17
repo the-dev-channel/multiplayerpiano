@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node .",
     "build": "npx tsc",
-    "test": "./test.sh"
+    "test": "./test.sh",
+    "test-nodocker": "yarn build && yarn start"
   },
   "devDependencies": {
     "@types/express": "^4.17.13",

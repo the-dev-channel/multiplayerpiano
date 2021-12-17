@@ -306,7 +306,7 @@ Client.prototype.receiveServerTime = function(time, echo) {
 	}, step_ms);
 	// smoothen
 
-	//this.serverTimeOffset = time - now;			// mostly time zone offset ... also the lags so todo smoothen this
+	// this.serverTimeOffset = time - now;			// mostly time zone offset ... also the lags so todo smoothen this
 								// not smooth:
 	//if(echo) this.serverTimeOffset += echo - now;	// mostly round trip time offset
 };

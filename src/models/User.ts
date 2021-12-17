@@ -1,5 +1,6 @@
 interface User {
     _id: string;
+    id: string;
     name: string;
     color?: string;
     flags: Object;
@@ -7,6 +8,7 @@ interface User {
 
 interface PublicUser {
     _id: string;
+    id: string;
     name: string;
     color?: string;
 }

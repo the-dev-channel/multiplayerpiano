@@ -36,13 +36,18 @@ class Server extends EventEmitter {
         this.webServer = new WebServer(this);
         this.wsServer = new WebSocketServer(this);
         this.clients = new Map<string, Client>();
+        this.channels = new Map<string, Channel>();
 
         Database.setup(this);
 
         this.bindEventListeners();
     }
 
-    destroyClient(id: string) { //* finished
+    destroyClient(cl: Client) { //* finished
+        this.clients.delete(cl.participantID);
+    }
+
+    destroyClientByParticipantID(id: string) {
         this.clients.delete(id);
     }
 
