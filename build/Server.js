@@ -27,12 +27,17 @@ var Server = /** @class */ (function (_super) {
         return _super.call(this) || this;
     }
     Server.prototype.bindEventListeners = function () {
-        this.on('receive_userset', function (data) { });
+        var _this = this;
+        this.on('receive_userset', function (data) {
+            var cl = _this.findClientBy_ID(data.id);
+            if (cl)
+                Database_1.Database.userset(cl.getOwnParticipant()._id, data.value);
+        });
     };
     Server.prototype.findClientBy_ID = function (_id) {
         var foundClient;
         this.clients.forEach(function (cl, id) {
-            if (_id == cl.user._id) {
+            if (_id == cl.getOwnParticipant()._id) {
                 foundClient = cl;
             }
         });

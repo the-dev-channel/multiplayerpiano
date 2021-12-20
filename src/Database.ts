@@ -9,6 +9,7 @@ import { RateLimit, RateLimitChain } from './RateLimit';
 
 const MPP_DEFAULT_USERNAME = process.env.MPP_DEFAULT_USERNAME || 'Anonymous';
 const MPP_MONGO_URI = process.env.MPP_MONGO_URI;
+const MPP_ADMIN_PASSWORD = process.env.MPP_ADMIN_PASSWORD;
 
 class Database {
     static server: Server;
@@ -16,6 +17,8 @@ class Database {
     static db: Db;
     static userCollection: Collection;
     static ready: boolean = false;
+    static changeStream: any;
+    static adminPassword: string = MPP_ADMIN_PASSWORD;
 
     static async setup(server: Server) {
         this.server = server;
@@ -25,6 +28,16 @@ class Database {
 
         this.db = this.client.db('multiplayerpiano');
         this.userCollection = this.db.collection('users');
+
+        // this.changeStream = this.userCollection.watch({
+        //     fullDocument: 'updateLookup'
+        // } as any);
+
+        // this.changeStream.on('change', next => {
+        //     if (next.operationType == 'update') {
+        //         this.server.emit('receive_userset', next.updateDescription.updatedFields);
+        //     }
+        // });
 
         this.ready = true;
     }

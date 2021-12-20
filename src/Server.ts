@@ -17,14 +17,17 @@ class Server extends EventEmitter {
     }
 
     bindEventListeners() {
-        this.on('receive_userset', data => {});
+        this.on('receive_userset', data => {
+            let cl = this.findClientBy_ID(data.id);
+            if (cl) Database.userset(cl.getOwnParticipant()._id, data.value);
+        });
     }
 
     findClientBy_ID(_id: string) {
         let foundClient: Client;
 
         this.clients.forEach((cl, id) => {
-            if (_id == cl.user._id) {
+            if (_id == cl.getOwnParticipant()._id) {
                 foundClient = cl;
             }
         });

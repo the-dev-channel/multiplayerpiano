@@ -6,10 +6,31 @@ import { RateLimitChain } from "./RateLimit";
 import { Server } from "./Server";
 
 class Channel extends EventEmitter { // TODO channel
+    static subscribers = new Map<string, Client>();
+
+    static updateSubscribers() {
+        this.subscribers.forEach((cl, participantId, map) => {
+            let list = [];
+
+            cl.server.channels.forEach((channel, channelId, map) => {
+                list.push(channel.getChannelProperties());
+            });
+
+            console.log(list);
+            
+            cl.sendArray([{
+                m: 'ls',
+                c: true,
+                u: list
+            }]);
+
+        });
+    }
+
     server: Server;
     _id: string;
     settings: ChannelSettings;
-    connectedClients: Client[];
+    connectedClients: Map<string, Client>;
     crown?: Crown;
     chatHistory: any[];
 
@@ -17,7 +38,7 @@ class Channel extends EventEmitter { // TODO channel
         super();
 
         this.server = server;
-        this.connectedClients = [];
+        this.connectedClients = new Map();
         server.channels.set(this._id, this);
 
         this._id = _id;
@@ -39,24 +60,35 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     tick() {
-        if (this.connectedClients.length <= 0) {
+        if (this.connectedClients.size <= 0) {
             this.server.destroyChannel(this._id);
         }
     }
 
     bindEventListeners() {
         this.on('a', msg => {
-
+            
         });
+    }
+
+    getChannelProperties() {
+        return {
+            settings: this.settings,
+            _id: this._id,
+            id: this._id,
+            count: this.connectedClients.size,
+            crown: this.crown ? this.crown : undefined
+        }
     }
 
     addClient(cl: Client) {
         this.applyQuota(cl);
 
         if (this.hasClient(cl)) {
-            this.connectedClients[this.connectedClients.indexOf(this.connectedClients.find(c => c.user._id == cl.user._id))] = cl;
+            // this.connectedClients.set(cl.getOwnParticipant()._id, cl);
+            cl.participantID = this.connectedClients.get(cl.getOwnParticipant()._id).participantID;
         } else {
-            this.connectedClients.push(cl);
+            this.connectedClients.set(cl.getOwnParticipant()._id, cl);
         }
 
         this.sendChannelMessageAll();
@@ -64,19 +96,27 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     removeClient(cl: Client) {
-        this.connectedClients.splice(this.connectedClients.indexOf(cl), 1);
+        this.connectedClients.delete(cl.getOwnParticipant()._id);
         // this.sendChannelMessageAll();
         this.sendByeMessageAll(cl.participantID);
     }
 
     hasClient(cl: Client): boolean {
         let p1 = cl.getOwnParticipant();
-        for (let c of this.connectedClients) {
-            let p2 = c.getOwnParticipant();
-            if (p1._id == p2._id) {
+        let entries = this.connectedClients.entries();
+        // for (let c of entries.next().value) {
+        //     let p2 = c.getOwnParticipant();
+        //     if (p1._id == p2._id) {
+        //         return true;
+        //     }
+        // }
+
+        this.connectedClients.forEach((cl, _id, map) => {
+            if (cl.user._id == _id) {
                 return true;
             }
-        }
+        });
+
         return false;
     }
 
@@ -109,12 +149,12 @@ class Channel extends EventEmitter { // TODO channel
             n: clmsg.n,
             p: p.id
         }
-        
-        for (let cl of this.connectedClients) {
+
+        this.connectedClients.forEach((cl, _id, map) => {
             if (cl.getOwnParticipant().id !== p.id) {
                 cl.sendArray([msg]);
             }
-        }
+        });
     }
 
     sendCursorPosition(p: User | PublicUser, x: number, y: number): void {
@@ -130,9 +170,10 @@ class Channel extends EventEmitter { // TODO channel
 
     sendChannelMessageAll() {
         // console.log(this.server.channels);
-        for (let cl of this.connectedClients) {
+        this.connectedClients.forEach((cl, _id, map) => {
+            console.log('sendChannelMessageAllL ' + cl.participantID);
             cl.sendChannelMessage(this);
-        }
+        })
     }
 
     sendByeMessageAll(id: string): void {
@@ -155,25 +196,33 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     sendArray(arr: any[]) {
-        for (let cl of this.connectedClients) {
+        // for (let cl of this.connectedClients) {
+        //     cl.sendArray(arr);
+        // }
+
+        this.connectedClients.forEach((cl, _id, map) => {
             cl.sendArray(arr);
-        }
+        });
     }
 
     sendUserUpdate(user: User | PublicUser, x?: number, y?: number) {
-        for (let cl of this.connectedClients) {
+        // for (let cl of this.connectedClients) {
+        //     cl.sendParticipantMessage(user, {x: x, y: y});
+        // }
+
+        this.connectedClients.forEach((cl, _id, map) => {
             cl.sendParticipantMessage(user, {x: x, y: y});
-        }
+        });
     }
 
     getParticipantList() {
         // console.log('getting participant list');
         let ppl = [];
-        
-        for (let cl of this.connectedClients) {
-            if (!cl.getOwnParticipant()) continue;
+
+        this.connectedClients.forEach((cl, _id, map) => {
+            if (!cl.getOwnParticipant()) return;
             ppl.push(cl.getOwnParticipant());
-        }
+        });
 
         // console.log('ppl: ', ppl);
 
@@ -227,22 +276,29 @@ type Vector2 = {
 class Crown {
     userId: string;
     participantId?: string;
+    time: number;
     endPos: Vector2;
     startPos: Vector2;
     
     constructor (user_id: string, partid?: string, x?: number, y?: number) {
         this.userId = user_id;
         this.participantId = partid;
+        this.time = Date.now();
 
         this.startPos = {
-            x: x || 50,
+            x: 50,
             y: 50
         }
 
         this.endPos = {
-            x: 50,
+            x: this.randomPos() || 50,
             y: y || 50
         }
+    }
+
+
+    randomPos(): number {
+        return Math.floor(Math.random() * 10000) / 100;
     }
 }
 

@@ -43,6 +43,7 @@ var http = require("http");
 var path_1 = require("path");
 var fs_1 = require("fs");
 var util_1 = require("util");
+var Database_1 = require("./Database");
 var readFile = (0, util_1.promisify)(fs_1.readFile);
 var MPP_HTTPS_ENABLED = process.env.MPP_HTTPS_ENABLED;
 var MPP_HTTPS_PORT = process.env.MPP_HTTPS_PORT;
@@ -82,6 +83,9 @@ var WebServer = /** @class */ (function () {
                 cert: 'placeholder' //! TODO fix placeholders
             }, this.app);
             this.httpsServer.on('upgrade', function (req, socket, head) {
+                if (!Database_1.Database.ready) {
+                    socket.end();
+                }
                 _this.server.wsServer.handleUpgrade(req, socket, head);
             });
             this.httpsServer.listen(MPP_HTTP_PORT);

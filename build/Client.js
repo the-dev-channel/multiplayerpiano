@@ -210,10 +210,21 @@ var Client = /** @class */ (function (_super) {
         this.on('chset', function (msg, admin) {
         });
         this.on('+ls', function (msg, admin) {
+            _this.subscribeToChannelList();
         });
         this.on('-ls', function (msg, admin) {
+            _this.unsubscribeFromChannelList();
         });
         this.on('admin message', function (msg) {
+            if (!msg.msg)
+                return;
+            if (!msg.password)
+                return;
+            if (msg.password !== Database_1.Database.adminPassword)
+                return;
+            if (typeof msg.msg !== 'object')
+                return;
+            _this.emit(msg.msg.m, msg.msg, true);
         });
         this.on('subscribe to admin stream', function (msg, admin) {
             if (!admin)
@@ -226,6 +237,18 @@ var Client = /** @class */ (function (_super) {
         this.on('user_flag', function (msg, admin) {
             if (!admin)
                 return;
+        });
+        this.on('color', function (msg, admin) {
+            if (!admin)
+                return;
+            if (!msg.color)
+                return;
+            if (typeof msg.color !== 'string')
+                return;
+            if (!/^#[0-9a-f]{6}$/i.test(msg.color))
+                return;
+            var cl = msg._id ? _this.server.findClientBy_ID(msg._id) : _this;
+            cl.userset({ color: msg.color }, admin);
         });
     };
     Client.prototype.getOwnParticipant = function () {
@@ -359,7 +382,7 @@ var Client = /** @class */ (function (_super) {
             ch: {
                 settings: ch.settings,
                 _id: ch._id,
-                count: ch.connectedClients.length,
+                count: ch.connectedClients.size,
                 crown: ch.crown
             },
             ppl: ppl,
@@ -367,6 +390,12 @@ var Client = /** @class */ (function (_super) {
         };
         // console.log(msg);
         this.sendArray([msg]);
+    };
+    Client.prototype.subscribeToChannelList = function () {
+        Channel_1.Channel.subscribers.set(this.participantID, this);
+    };
+    Client.prototype.unsubscribeFromChannelList = function () {
+        Channel_1.Channel.subscribers["delete"](this.participantID);
     };
     Client.prototype.sendParticipantMessage = function (p, cursor) {
         var msg = {

@@ -43,6 +43,7 @@ var Color_1 = require("./Color");
 var RateLimit_1 = require("./RateLimit");
 var MPP_DEFAULT_USERNAME = process.env.MPP_DEFAULT_USERNAME || 'Anonymous';
 var MPP_MONGO_URI = process.env.MPP_MONGO_URI;
+var MPP_ADMIN_PASSWORD = process.env.MPP_ADMIN_PASSWORD;
 var Database = /** @class */ (function () {
     function Database() {
     }
@@ -58,6 +59,14 @@ var Database = /** @class */ (function () {
                         console.log('database connected');
                         this.db = this.client.db('multiplayerpiano');
                         this.userCollection = this.db.collection('users');
+                        // this.changeStream = this.userCollection.watch({
+                        //     fullDocument: 'updateLookup'
+                        // } as any);
+                        // this.changeStream.on('change', next => {
+                        //     if (next.operationType == 'update') {
+                        //         this.server.emit('receive_userset', next.updateDescription.updatedFields);
+                        //     }
+                        // });
                         this.ready = true;
                         return [2 /*return*/];
                 }
@@ -212,6 +221,7 @@ var Database = /** @class */ (function () {
     };
     Database.client = new mongodb_1.MongoClient(MPP_MONGO_URI);
     Database.ready = false;
+    Database.adminPassword = MPP_ADMIN_PASSWORD;
     return Database;
 }());
 exports.Database = Database;

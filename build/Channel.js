@@ -24,7 +24,7 @@ var Channel = /** @class */ (function (_super) {
     function Channel(server, _id, set, p, crownX, crownY) {
         var _this = _super.call(this) || this;
         _this.server = server;
-        _this.connectedClients = [];
+        _this.connectedClients = new Map();
         server.channels.set(_this._id, _this);
         _this._id = _id;
         _this.settings = new ChannelSettings(set);
@@ -42,8 +42,22 @@ var Channel = /** @class */ (function (_super) {
         _this.bindEventListeners();
         return _this;
     }
+    Channel.updateSubscribers = function () {
+        this.subscribers.forEach(function (cl, participantId, map) {
+            var list = [];
+            cl.server.channels.forEach(function (channel, channelId, map) {
+                list.push(channel.getChannelProperties());
+            });
+            console.log(list);
+            cl.sendArray([{
+                    m: 'ls',
+                    c: true,
+                    u: list
+                }]);
+        });
+    };
     Channel.prototype.tick = function () {
-        if (this.connectedClients.length <= 0) {
+        if (this.connectedClients.size <= 0) {
             this.server.destroyChannel(this._id);
         }
     };
@@ -51,31 +65,46 @@ var Channel = /** @class */ (function (_super) {
         this.on('a', function (msg) {
         });
     };
+    Channel.prototype.getChannelProperties = function () {
+        return {
+            settings: this.settings,
+            _id: this._id,
+            id: this._id,
+            count: this.connectedClients.size,
+            crown: this.crown ? this.crown : undefined
+        };
+    };
     Channel.prototype.addClient = function (cl) {
         this.applyQuota(cl);
         if (this.hasClient(cl)) {
-            this.connectedClients[this.connectedClients.indexOf(this.connectedClients.find(function (c) { return c.user._id == cl.user._id; }))] = cl;
+            // this.connectedClients.set(cl.getOwnParticipant()._id, cl);
+            cl.participantID = this.connectedClients.get(cl.getOwnParticipant()._id).participantID;
         }
         else {
-            this.connectedClients.push(cl);
+            this.connectedClients.set(cl.getOwnParticipant()._id, cl);
         }
         this.sendChannelMessageAll();
         cl.sendChatHistory(this.chatHistory);
     };
     Channel.prototype.removeClient = function (cl) {
-        this.connectedClients.splice(this.connectedClients.indexOf(cl), 1);
+        this.connectedClients["delete"](cl.getOwnParticipant()._id);
         // this.sendChannelMessageAll();
         this.sendByeMessageAll(cl.participantID);
     };
     Channel.prototype.hasClient = function (cl) {
         var p1 = cl.getOwnParticipant();
-        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var c = _a[_i];
-            var p2 = c.getOwnParticipant();
-            if (p1._id == p2._id) {
+        var entries = this.connectedClients.entries();
+        // for (let c of entries.next().value) {
+        //     let p2 = c.getOwnParticipant();
+        //     if (p1._id == p2._id) {
+        //         return true;
+        //     }
+        // }
+        this.connectedClients.forEach(function (cl, _id, map) {
+            if (cl.user._id == _id) {
                 return true;
             }
-        }
+        });
         return false;
     };
     Channel.prototype.sendChat = function (p, clmsg) {
@@ -102,12 +131,11 @@ var Channel = /** @class */ (function (_super) {
             n: clmsg.n,
             p: p.id
         };
-        for (var _b = 0, _c = this.connectedClients; _b < _c.length; _b++) {
-            var cl = _c[_b];
+        this.connectedClients.forEach(function (cl, _id, map) {
             if (cl.getOwnParticipant().id !== p.id) {
                 cl.sendArray([msg]);
             }
-        }
+        });
     };
     Channel.prototype.sendCursorPosition = function (p, x, y) {
         var msg = {
@@ -119,11 +147,12 @@ var Channel = /** @class */ (function (_super) {
         this.sendArray([msg]);
     };
     Channel.prototype.sendChannelMessageAll = function () {
+        var _this = this;
         // console.log(this.server.channels);
-        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var cl = _a[_i];
-            cl.sendChannelMessage(this);
-        }
+        this.connectedClients.forEach(function (cl, _id, map) {
+            console.log('sendChannelMessageAllL ' + cl.participantID);
+            cl.sendChannelMessage(_this);
+        });
     };
     Channel.prototype.sendByeMessageAll = function (id) {
         this.sendArray([{
@@ -142,29 +171,33 @@ var Channel = /** @class */ (function (_super) {
         return reg.test(this._id);
     };
     Channel.prototype.sendArray = function (arr) {
-        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var cl = _a[_i];
+        // for (let cl of this.connectedClients) {
+        //     cl.sendArray(arr);
+        // }
+        this.connectedClients.forEach(function (cl, _id, map) {
             cl.sendArray(arr);
-        }
+        });
     };
     Channel.prototype.sendUserUpdate = function (user, x, y) {
-        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var cl = _a[_i];
+        // for (let cl of this.connectedClients) {
+        //     cl.sendParticipantMessage(user, {x: x, y: y});
+        // }
+        this.connectedClients.forEach(function (cl, _id, map) {
             cl.sendParticipantMessage(user, { x: x, y: y });
-        }
+        });
     };
     Channel.prototype.getParticipantList = function () {
         // console.log('getting participant list');
         var ppl = [];
-        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var cl = _a[_i];
+        this.connectedClients.forEach(function (cl, _id, map) {
             if (!cl.getOwnParticipant())
-                continue;
+                return;
             ppl.push(cl.getOwnParticipant());
-        }
+        });
         // console.log('ppl: ', ppl);
         return ppl;
     };
+    Channel.subscribers = new Map();
     return Channel;
 }(stream_1.EventEmitter));
 exports.Channel = Channel;
@@ -204,14 +237,18 @@ var Crown = /** @class */ (function () {
     function Crown(user_id, partid, x, y) {
         this.userId = user_id;
         this.participantId = partid;
+        this.time = Date.now();
         this.startPos = {
-            x: x || 50,
+            x: 50,
             y: 50
         };
         this.endPos = {
-            x: 50,
+            x: this.randomPos() || 50,
             y: y || 50
         };
     }
+    Crown.prototype.randomPos = function () {
+        return Math.floor(Math.random() * 10000) / 100;
+    };
     return Crown;
 }());

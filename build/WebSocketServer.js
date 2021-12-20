@@ -7,14 +7,27 @@ var Crypto_1 = require("./Crypto");
 var WebSocketServer = /** @class */ (function () {
     function WebSocketServer(server) {
         this.server = server;
+        this.canConnect = false;
+        this.delayTime = 10000;
         this.wss = new WebSocket.Server({
             noServer: true
         });
         this.bindEventListeners();
+        this.startCount();
     }
+    WebSocketServer.prototype.startCount = function () {
+        var _this = this;
+        setTimeout(function () {
+            _this.canConnect = true;
+        }, this.delayTime);
+    };
     WebSocketServer.prototype.handleUpgrade = function (req, socket, head) {
         var _this = this;
         this.wss.handleUpgrade(req, socket, head, function (ws, req) {
+            if (!_this.canConnect) {
+                ws.close();
+                return;
+            }
             _this.wss.emit('connection', ws, req);
         });
     };

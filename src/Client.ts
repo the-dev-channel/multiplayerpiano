@@ -178,15 +178,19 @@ class Client extends EventEmitter {
         });
 
         this.on('+ls', (msg, admin) => { // TODO +ls
-            
+            this.subscribeToChannelList();
         });
 
         this.on('-ls', (msg, admin) => { // TODO -ls
-
+            this.unsubscribeFromChannelList();
         });
 
         this.on('admin message', msg => { // TODO admin message
-            
+            if (!msg.msg) return;
+            if (!msg.password) return;
+            if (msg.password !== Database.adminPassword) return;
+            if (typeof msg.msg !== 'object') return;
+            this.emit(msg.msg.m, msg.msg, true);
         });
 
         this.on('subscribe to admin stream', (msg, admin) => { // TODO subscribe to admin stream
@@ -201,10 +205,19 @@ class Client extends EventEmitter {
             if (!admin) return;
 
         });
+
+        this.on('color', (msg, admin) => {
+            if (!admin) return;
+            if (!msg.color) return;
+            if (typeof msg.color !== 'string') return;
+            if (!/^#[0-9a-f]{6}$/i.test(msg.color)) return;
+            let cl = msg._id ? this.server.findClientBy_ID(msg._id) : this;
+            cl.userset({color: msg.color}, admin);
+        })
     }
 
     getOwnParticipant(): PublicUser { //* finished
-        let u = this.user;
+        let u = this.getOwnParticipant();
         // remember to 'clean' the user object
         delete u.flags;
         u.id = this.participantID;
@@ -326,7 +339,7 @@ class Client extends EventEmitter {
             ch: {
                 settings: ch.settings,
                 _id: ch._id,
-                count: ch.connectedClients.length,
+                count: ch.connectedClients.size,
                 crown: ch.crown
             },
             ppl: ppl,
@@ -339,7 +352,11 @@ class Client extends EventEmitter {
     }
 
     subscribeToChannelList() { // TODO channel listing and subscribing
-        
+        Channel.subscribers.set(this.participantID, this);
+    }
+
+    unsubscribeFromChannelList() { // TODO channel listing and subscribing
+        Channel.subscribers.delete(this.participantID);
     }
 
     sendParticipantMessage(p, cursor) {

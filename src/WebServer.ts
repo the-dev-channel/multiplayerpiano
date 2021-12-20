@@ -6,6 +6,7 @@ import http = require('http');
 import { join } from 'path';
 import { readFile as rf } from 'fs';
 import { promisify } from 'util';
+import { Database } from './Database';
 
 const readFile = promisify(rf);
 
@@ -50,6 +51,10 @@ class WebServer {
             }, this.app);
 
             this.httpsServer.on('upgrade', (req, socket, head) => {
+                if (!Database.ready) {
+                    socket.end();
+                }
+
                 this.server.wsServer.handleUpgrade(req, socket, head);
             });
 
