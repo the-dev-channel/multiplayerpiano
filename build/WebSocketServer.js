@@ -8,21 +8,29 @@ var WebSocketServer = /** @class */ (function () {
     function WebSocketServer(server) {
         this.server = server;
         this.canConnect = false;
-        this.delayTime = 10000;
+        this.delayTime = 5000;
         this.wss = new WebSocket.Server({
             noServer: true
         });
         this.bindEventListeners();
-        this.startCount();
+        this.startDelayed();
     }
-    WebSocketServer.prototype.startCount = function () {
+    WebSocketServer.prototype.startDelayed = function () {
         var _this = this;
         setTimeout(function () {
-            _this.canConnect = true;
+            _this.start();
         }, this.delayTime);
+    };
+    WebSocketServer.prototype.start = function () {
+        this.canConnect = true;
     };
     WebSocketServer.prototype.handleUpgrade = function (req, socket, head) {
         var _this = this;
+        // if (!this.canConnect) {
+        //     socket.end(() => {
+        //         socket.destroy();
+        //     });
+        // }
         this.wss.handleUpgrade(req, socket, head, function (ws, req) {
             if (!_this.canConnect) {
                 ws.close();

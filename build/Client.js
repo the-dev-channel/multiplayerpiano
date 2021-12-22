@@ -382,7 +382,7 @@ var Client = /** @class */ (function (_super) {
             ch: {
                 settings: ch.settings,
                 _id: ch._id,
-                count: ch.connectedClients.size,
+                count: ch.connectedClients.length,
                 crown: ch.crown
             },
             ppl: ppl,
@@ -392,10 +392,8 @@ var Client = /** @class */ (function (_super) {
         this.sendArray([msg]);
     };
     Client.prototype.subscribeToChannelList = function () {
-        Channel_1.Channel.subscribers.set(this.participantID, this);
     };
     Client.prototype.unsubscribeFromChannelList = function () {
-        Channel_1.Channel.subscribers["delete"](this.participantID);
     };
     Client.prototype.sendParticipantMessage = function (p, cursor) {
         var msg = {

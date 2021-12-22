@@ -15,23 +15,32 @@ class WebSocketServer {
     constructor (server: Server) {
         this.server = server;
         this.canConnect = false;
-        this.delayTime = 10000;
+        this.delayTime = 5000;
 
         this.wss = new WebSocket.Server({
             noServer: true
         });
 
         this.bindEventListeners();
-        this.startCount();
+        this.startDelayed();
     }
 
-    startCount() {
+    startDelayed() {
         setTimeout(() => {
-            this.canConnect = true;
+            this.start();
         }, this.delayTime);
     }
 
+    start() {
+        this.canConnect = true;
+    }
+
     handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer) {
+        // if (!this.canConnect) {
+        //     socket.end(() => {
+        //         socket.destroy();
+        //     });
+        // }
         this.wss.handleUpgrade(req, (socket as Socket), head, (ws, req) => {
             if (!this.canConnect) {
                 ws.close();

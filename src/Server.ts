@@ -10,7 +10,7 @@ class Server extends EventEmitter {
     webServer: WebServer;
     wsServer: WebSocketServer;
     channels: Map<string, Channel>;
-    clients: Map<string, Client>;
+    clients: Map<string, Client>; //! urgent - this should be the ONLY place to reference clients
 
     constructor () {
         super();

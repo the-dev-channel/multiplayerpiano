@@ -216,7 +216,8 @@ var Database = /** @class */ (function () {
             m: new RateLimit_1.RateLimit(1000 / 20),
             ch: new RateLimit_1.RateLimit(1000),
             chset: new RateLimit_1.RateLimit(1500),
-            t: new RateLimit_1.RateLimit(20)
+            t: new RateLimit_1.RateLimit(20),
+            a: new RateLimit_1.RateLimitChain(4, 6000)
         };
     };
     Database.client = new mongodb_1.MongoClient(MPP_MONGO_URI);

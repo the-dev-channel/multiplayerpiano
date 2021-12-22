@@ -154,7 +154,8 @@ class Database {
             m: new RateLimit(1000 / 20),
             ch: new RateLimit(1000),
             chset: new RateLimit(1500),
-            t: new RateLimit(20)
+            t: new RateLimit(20),
+            a: new RateLimitChain(4, 6000)
         }
     }
 }

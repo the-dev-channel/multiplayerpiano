@@ -217,7 +217,7 @@ class Client extends EventEmitter {
     }
 
     getOwnParticipant(): PublicUser { //* finished
-        let u = this.getOwnParticipant();
+        let u = this.user;
         // remember to 'clean' the user object
         delete u.flags;
         u.id = this.participantID;
@@ -339,7 +339,7 @@ class Client extends EventEmitter {
             ch: {
                 settings: ch.settings,
                 _id: ch._id,
-                count: ch.connectedClients.size,
+                count: ch.connectedClients.length,
                 crown: ch.crown
             },
             ppl: ppl,
@@ -352,11 +352,11 @@ class Client extends EventEmitter {
     }
 
     subscribeToChannelList() { // TODO channel listing and subscribing
-        Channel.subscribers.set(this.participantID, this);
+        
     }
 
     unsubscribeFromChannelList() { // TODO channel listing and subscribing
-        Channel.subscribers.delete(this.participantID);
+        
     }
 
     sendParticipantMessage(p, cursor) {
@@ -385,6 +385,7 @@ class ClientRateLimits {
     chset: RateLimit;
     nq: RateLimitChain;
     t: RateLimit;
+    a: RateLimitChain;
 
     constructor () {
         let data = Database.getDefaultClientRateLimits();
