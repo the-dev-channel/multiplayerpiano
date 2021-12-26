@@ -32,20 +32,24 @@ class Channel extends EventEmitter { // TODO channel
     server: Server;
     _id: string;
     settings: ChannelSettings;
-    connectedClients: string[];
+    connectedClients: {id: string, _id: string}[];
     crown?: Crown;
     chatHistory: any[];
+    destroyTimeout: any;
 
     constructor (server: Server, _id: string, set: any, p?: PublicUser, crownX?: number, crownY?: number) {
         super();
 
         this.server = server;
-        this.connectedClients = [_id];
-        server.channels.set(this._id, this);
+        this.connectedClients = [];
 
+        if (typeof _id === 'undefined' || _id == 'undefined') {
+            console.log('WARNING: _id is undefined');
+        }
+        
         this._id = _id;
         this.settings = new ChannelSettings(set);
-
+        
         if (this.isLobby()) {
             this.settings.lobby = true;
             let colors = Database.getDefaultLobbySettings();
@@ -55,25 +59,26 @@ class Channel extends EventEmitter { // TODO channel
             // TODO add crown to non-lobby rooms
             this.crown = new Crown(p._id, p.id, crownX || 50, crownY || 50);
         }
-
+        
         this.chatHistory = [];
         
         this.bindEventListeners();
+        server.channels.set(this._id, this);
     }
 
-    getClient(_id) {
-        return this.server.findClientBy_ID(_id);
-    }
-
-    tick() {
-        if (this.connectedClients.length <= 0) {
-            this.server.destroyChannel(this._id);
-        }
-    }
+    // getClient(_id) {
+    //     return this.server.findClientBy_ID(_id);
+    // }
 
     bindEventListeners() {
-        this.on('a', msg => {
-            
+        this.on('update', msg => {
+            this.sendUpdate();
+            clearTimeout(this.destroyTimeout);
+            if (this.connectedClients.length <= 0) {
+                this.destroyTimeout = setTimeout(() => {
+                    this.server.destroyChannel(this._id);
+                }, 3000);
+            }
         });
     }
 
@@ -87,51 +92,65 @@ class Channel extends EventEmitter { // TODO channel
         }
     }
 
+    setSettings(set) {
+        this.settings = new ChannelSettings(set);
+        this.emit('update');
+    }
+
+    sendUpdate() {
+        // this.server.sendChannelUpdateIncomplete([this.getChannelProperties()]);
+        this.server.emit('channel_update', this.getChannelProperties());
+    }
+
     addClient(cl: Client) {
-        this.applyQuota(cl);
+        //this.applyQuota(cl);
 
         if (this.hasClient(cl)) {
+            // console.log('already has client');
             // this.connectedClients.set(cl.getOwnParticipant()._id, cl);
             // cl.participantID = this.server.findClientBy_ID(cl.getOwnParticipant()._id).participantID;
+            
+            // find the old client ids and update them
+            this.connectedClients.find(c => c._id == cl.getOwnParticipant()._id).id = cl.participantID;
         } else {
-            this.connectedClients.push(cl.getOwnParticipant()._id);
+            // console.log('does not have client');
+            this.connectedClients.push({
+                id: cl.participantID,
+                _id: cl.getOwnParticipant()._id
+            });
         }
+
+        // console.log(this.connectedClients);
+        cl.emit("bye");
+
+        cl.currentChannelID = this._id;
 
         this.sendChannelMessageAll();
         cl.sendChatHistory(this.chatHistory);
+
+        this.emit('update');
     }
 
     removeClient(cl: Client) {
         // this.connectedClients.delete(cl.getOwnParticipant()._id);
         // this.sendChannelMessageAll();
-        this.connectedClients.splice(this.connectedClients.indexOf(cl.getOwnParticipant()._id), 1);
+        // this.connectedClients.splice(this.connectedClients.indexOf(cl.getOwnParticipant()._id), 1);
+        // this.sendByeMessageAll(cl.participantID);
+
+        // remove the user's _id from the array
+        // remove this user's _id from the connected clients array
+        this.connectedClients.splice(this.connectedClients.indexOf({_id: cl.getOwnParticipant()._id, id: cl.participantID}), 1);
+        // console.log(this.connectedClients);
+        this.sendChannelMessageAll();
+
         this.sendByeMessageAll(cl.participantID);
+
+        this.emit('update');
     }
 
     hasClient(cl: Client): boolean {
-        // let p1 = cl.getOwnParticipant();
-        // let entries = this.connectedClients.entries();
-        // for (let c of entries.next().value) {
-        //     let p2 = c.getOwnParticipant();
-        //     if (p1._id == p2._id) {
-        //         return true;
-        //     }
-        // }
-
-        // this.connectedClients.forEach(_id => {
-        //     // if (cl.user._id == _id) {
-        //     //     return true;
-        //     // }
-
-        //     let cl = this.server.findClientBy_ID(_id);
-        //     if (cl.getOwnParticipant()._id == _id) {
-        //         return true;
-        //     }
-        // });
-
-        for (let _id of this.connectedClients) {
-            let cl = this.server.findClientBy_ID(_id);
-            if (cl.getOwnParticipant()._id == _id) {
+        for (let {_id, id} of this.connectedClients) {
+            if (cl.participantID == id) {
                 return true;
             }
         }
@@ -176,9 +195,9 @@ class Channel extends EventEmitter { // TODO channel
         //     }
         // });
 
-        for (let _id of this.connectedClients) {
-            let cl = this.server.findClientBy_ID(_id);
-            if (cl.getOwnParticipant().id !== p.id) {
+        for (let {_id, id} of this.connectedClients) {
+            let cl = this.server.findClientByID(id);
+            if (cl.participantID !== p.id) {
                 cl.sendArray([msg]);
             }
         }
@@ -196,18 +215,21 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     sendChannelMessageAll() {
-        this.connectedClients.forEach(_id => {
-            console.log(_id);
-            let cl = this.server.findClientBy_ID(_id);
-            console.log('sendChannelMessageAll ' + cl.participantID);
+        // console.log("This is running.")
+        this.connectedClients.forEach(({_id, id}) => {
+            // console.log(_id);
+            let cl = this.server.findClientByID(id);
+            // if (cl.currentChannelID !== this._id) {
+                // console.log('sendChannelMessageAll ' + cl.participantID, cl.getOwnParticipant()._id);
+            // }
             cl.sendChannelMessage(this);
-        })
+        });
     }
 
     sendByeMessageAll(id: string): void {
         this.sendArray([{
             m: 'bye',
-            id: id
+            p: id
         }]);
     }
 
@@ -233,8 +255,12 @@ class Channel extends EventEmitter { // TODO channel
         //     cl.sendArray(arr);
         // });
 
-        for (let _id of this.connectedClients) {
-            let cl = this.server.findClientBy_ID(_id);
+        for (let {_id, id} of this.connectedClients) {
+            // console.log('id: ', id);
+            let cl = this.server.findClientByID(id);
+            // console.log(cl);
+            // console.log(cl);
+            if (cl.currentChannelID !== this._id) continue;
             cl.sendArray(arr);
         }
     }
@@ -249,8 +275,8 @@ class Channel extends EventEmitter { // TODO channel
         //     cl.sendParticipantMessage(user, {x: x, y: y});
         // });
 
-        for (let _id of this.connectedClients) {
-            let cl = this.server.findClientBy_ID(_id);
+        for (let {_id, id} of this.connectedClients) {
+            let cl = this.server.findClientByID(id);
             cl.sendParticipantMessage(user, {x: x, y: y});
         }
     }
@@ -259,8 +285,8 @@ class Channel extends EventEmitter { // TODO channel
         // console.log('getting participant list');
         let ppl = [];
 
-        for (let _id of this.connectedClients) {
-            let cl = this.server.findClientBy_ID(_id);
+        for (let {_id, id} of this.connectedClients) {
+            let cl = this.server.findClientByID(id);
             if (!cl.getOwnParticipant()) return;
             ppl.push(cl.getOwnParticipant());
         }
@@ -301,14 +327,25 @@ class ChannelSettings {
         "owner_id": "string"
     };
 
-    constructor (set) {
+    static ADMIN_ONLY = [
+        "lobby",
+        "owner_id",
+        "lyrical notes"
+    ]
+
+    constructor (set, admin: boolean = false) {
+        // set defaults
         let def = Database.getDefaultChannelSettings();
         for (let key of Object.keys(def)) {
             this[key] = def[key];
         }
 
+        // set values
         for (let key of Object.keys(set)) {
             if (typeof set[key] === ChannelSettings.VALID[key]) {
+                if (ChannelSettings.ADMIN_ONLY.indexOf(key) !== -1) {
+                    if (!admin) continue;
+                }
                 this[key] = set[key];
             }
         }

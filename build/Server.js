@@ -33,6 +33,14 @@ var Server = /** @class */ (function (_super) {
             if (cl)
                 Database_1.Database.userset(cl.getOwnParticipant()._id, data.value);
         });
+        this.on('channel_update', function (data) {
+            // get subscribed client ids
+            _this.clients.forEach(function (cl, id) {
+                if (cl.subscribedToChannelList) {
+                    cl.sendChannelListUpdate(false, [data]);
+                }
+            });
+        });
     };
     Server.prototype.findClientBy_ID = function (_id) {
         var foundClient;
@@ -43,11 +51,28 @@ var Server = /** @class */ (function (_super) {
         });
         return foundClient;
     };
+    Server.prototype.findClientByID = function (id) {
+        var foundClient;
+        this.clients.forEach(function (cl) {
+            if (id == cl.participantID) {
+                foundClient = cl;
+            }
+        });
+        return foundClient;
+    };
+    Server.prototype.getChannelInfos = function () {
+        var infos = [];
+        this.channels.forEach(function (ch, id) {
+            infos.push(ch.getChannelProperties());
+        });
+        return infos;
+    };
     Server.prototype.start = function () {
         this.webServer = new WebServer_1.WebServer(this);
         this.wsServer = new WebSocketServer_1.WebSocketServer(this);
         this.clients = new Map();
         this.channels = new Map();
+        // this.channelListSubscribers = [];
         Database_1.Database.setup(this);
         this.bindEventListeners();
     };

@@ -68,6 +68,8 @@ var Client = /** @class */ (function (_super) {
         user._id = _id;
         _this.user = user;
         _this.cursor = new Cursor(200, -200);
+        _this.rateLimits = new ClientRateLimits();
+        _this.subscribedToChannelList = false;
         Database_1.Database.getUser(_id).then(function (val) {
             _this.user = val;
             _this.ws = ws;
@@ -96,17 +98,18 @@ var Client = /** @class */ (function (_super) {
         });
         this.ws.on('close', function () {
             _this.emit('bye');
+            _this.server.destroyClient(_this);
         });
         this.once('hi', function (msg) {
             _this.sendHiMessage();
             _this.restartIdleTimeout();
         });
         this.on('bye', function (msg) {
-            var ch = _this.server.channels.get(_this.currentChannelID);
+            var ch = _this.getChannel();
             if (ch) {
                 ch.removeClient(_this);
+                // ch.emit('update');
             }
-            _this.server.destroyClient(_this);
         });
         this.on('ch', function (msg) {
             if (_this.ws.readyState !== WebSocket.OPEN)
@@ -116,7 +119,9 @@ var Client = /** @class */ (function (_super) {
             if (!msg._id)
                 return;
             // console.log('has _id')
-            if (typeof msg._id !== 'string')
+            if (typeof msg._id !== "string")
+                return;
+            if (msg._id == _this.currentChannelID)
                 return;
             // console.log('_id is string');
             var set = Database_1.Database.getDefaultChannelSettings();
@@ -155,10 +160,13 @@ var Client = /** @class */ (function (_super) {
             // if ((msg.t && typeof msg.t !== 'number') || msg.t == null) msg.t = Date.now();
             if (!Array.isArray(msg.n))
                 return;
-            var ch = _this.server.channels.get(_this.currentChannelID);
+            var ch = _this.getChannel();
             var p = _this.getOwnParticipant();
             if (!ch && p._id)
                 return;
+            // if (!admin) {
+            //     if (!this.rateLimits.nq.attempt(msg.t)) return;
+            // }
             if (ch.settings.crownsolo == true) {
                 if (ch.crown.userId == p._id) {
                     // console.log(msg);
@@ -171,6 +179,8 @@ var Client = /** @class */ (function (_super) {
             }
         });
         this.on('m', function (msg, admin) {
+            if (!_this.rateLimits.m.attempt())
+                return;
             _this.setCursorPosition(msg.x, msg.y);
         });
         this.on('t', function (msg) {
@@ -183,6 +193,8 @@ var Client = /** @class */ (function (_super) {
             if (!msg.message)
                 return;
             if (typeof msg.message !== 'string')
+                return;
+            if (!_this.rateLimits.a.attempt())
                 return;
             var ch = _this.server.channels.get(_this.currentChannelID);
             ch.sendChat(_this.getOwnParticipant(), msg);
@@ -210,10 +222,16 @@ var Client = /** @class */ (function (_super) {
         this.on('chset', function (msg, admin) {
         });
         this.on('+ls', function (msg, admin) {
-            _this.subscribeToChannelList();
+            // this.subscribeToChannelList();
+            _this.subscribedToChannelList = true;
+            // console.log('subsribe to channel list');
+            var chinfos = _this.server.getChannelInfos();
+            _this.sendChannelListUpdate(true, chinfos);
         });
         this.on('-ls', function (msg, admin) {
-            _this.unsubscribeFromChannelList();
+            // this.unsubscribeFromChannelList();
+            _this.subscribedToChannelList = false;
+            // console.log('unsubscribe from channel list');
         });
         this.on('admin message', function (msg) {
             if (!msg.msg)
@@ -250,6 +268,9 @@ var Client = /** @class */ (function (_super) {
             var cl = msg._id ? _this.server.findClientBy_ID(msg._id) : _this;
             cl.userset({ color: msg.color }, admin);
         });
+        this.on('debug', function () {
+            // console.log(this.getChannel());
+        });
     };
     Client.prototype.getOwnParticipant = function () {
         var u = this.user;
@@ -257,6 +278,9 @@ var Client = /** @class */ (function (_super) {
         delete u.flags;
         u.id = this.participantID;
         return u;
+    };
+    Client.prototype.getChannel = function () {
+        return this.server.channels.get(this.currentChannelID);
     };
     Client.prototype.sendHiMessage = function () {
         this.sendArray([{
@@ -292,6 +316,13 @@ var Client = /** @class */ (function (_super) {
         }
         catch (err) {
         }
+    };
+    Client.prototype.sendChannelListUpdate = function (complete, chinfos) {
+        this.sendArray([{
+                m: 'ls',
+                c: complete,
+                u: chinfos
+            }]);
     };
     Client.prototype.setCursorPosition = function (x, y) {
         if (typeof x !== 'number' || typeof y !== 'number') {
@@ -362,16 +393,19 @@ var Client = /** @class */ (function (_super) {
         // console.log('set channel called', this.server.channels);
         // check if server has channel
         if (!this.server.channels.get(_id)) {
-            // console.log('channel does not exist, creating new channel');
+            //console.log('channel does not exist, creating new channel');
             var ch = new Channel_1.Channel(this.server, _id, set, this.getOwnParticipant(), 50, this.cursor.y);
+            //console.log('channel debug'):;
+            //console.log(ch);
+            if (this.currentChannelID == ch._id)
+                this.emit("bye");
             ch.addClient(this);
             this.server.channels.set(_id, ch);
             return;
         }
-        else {
-            // console.log('channel exists');
-            this.server.channels.get(_id).addClient(this);
-        }
+        // console.log('channel exists');
+        this.emit("bye");
+        this.server.channels.get(_id).addClient(this);
     };
     Client.prototype.sendChannelMessage = function (ch) {
         // console.log('sending channel message');
@@ -391,10 +425,12 @@ var Client = /** @class */ (function (_super) {
         // console.log(msg);
         this.sendArray([msg]);
     };
-    Client.prototype.subscribeToChannelList = function () {
-    };
-    Client.prototype.unsubscribeFromChannelList = function () {
-    };
+    // subscribeToChannelList() { // TODO channel listing and subscribing
+    //     this.server.setChannelListSubscriber(this.getOwnParticipant()._id);
+    // }
+    // unsubscribeFromChannelList() { // TODO channel listing and subscribing
+    //     this.server.unsetChannelListSubscriber(this.getOwnParticipant()._id);
+    // }
     Client.prototype.sendParticipantMessage = function (p, cursor) {
         var msg = {
             m: 'p',
@@ -421,6 +457,8 @@ var ClientRateLimits = /** @class */ (function () {
             var key = _a[_i];
             this[key] = data[key];
         }
+        // console.log('rate limit debug -----');
+        // console.log(this);
     }
     return ClientRateLimits;
 }());

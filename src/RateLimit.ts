@@ -7,7 +7,7 @@ class RateLimit {
         this._after = 0;
     }
 
-    attempt(time: number) {
+    attempt(time?: number) {
         time = time || Date.now();
         if (time < this._after) return false;
         this._after = time + this._interval_ms;
@@ -27,7 +27,7 @@ class RateLimitChain {
         this.setNumAndInterval(num, interval_ms);
     }
 
-    attempt(time: number) {
+    attempt(time?: number) {
         time = time || Date.now();
 
         for (let i = 0; i < this._chain.length; i++) {

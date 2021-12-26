@@ -21,6 +21,15 @@ class Server extends EventEmitter {
             let cl = this.findClientBy_ID(data.id);
             if (cl) Database.userset(cl.getOwnParticipant()._id, data.value);
         });
+
+        this.on('channel_update', data => {
+            // get subscribed client ids
+            this.clients.forEach((cl, id) => {
+                if (cl.subscribedToChannelList) {
+                    cl.sendChannelListUpdate(false, [data]);
+                }
+            });
+        });
     }
 
     findClientBy_ID(_id: string) {
@@ -35,11 +44,32 @@ class Server extends EventEmitter {
         return foundClient;
     }
 
+    findClientByID(id: string) {
+        let foundClient: Client;
+
+        this.clients.forEach((cl) => {
+            if (id == cl.participantID) {
+                foundClient = cl;
+            }
+        });
+
+        return foundClient;
+    }
+
+    getChannelInfos() {
+        let infos: any[] = [];
+        this.channels.forEach((ch, id) => {
+            infos.push(ch.getChannelProperties());
+        });
+        return infos;
+    }
+
     start() {
         this.webServer = new WebServer(this);
         this.wsServer = new WebSocketServer(this);
         this.clients = new Map<string, Client>();
         this.channels = new Map<string, Channel>();
+        // this.channelListSubscribers = [];
 
         Database.setup(this);
 

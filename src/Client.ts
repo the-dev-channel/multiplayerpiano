@@ -18,6 +18,7 @@ class Client extends EventEmitter {
     rateLimits: ClientRateLimits;
     cursor: Cursor;
     idleTimeout: any;
+    subscribedToChannelList: boolean;
 
     constructor (server: Server, ws: WebSocket, req: IncomingMessage, id: string) {
         super();
@@ -30,6 +31,9 @@ class Client extends EventEmitter {
         user._id = _id;
         this.user = user;
         this.cursor = new Cursor(200, -200);
+
+        this.rateLimits = new ClientRateLimits();
+        this.subscribedToChannelList = false;
         
         Database.getUser(_id).then(val => {
             this.user = (val as User);
@@ -59,21 +63,21 @@ class Client extends EventEmitter {
 
         this.ws.on('close', () => { //* finshed
             this.emit('bye');
+            this.server.destroyClient(this);
         });
 
         this.once('hi', msg => { //* finished
             this.sendHiMessage();
             this.restartIdleTimeout();
         });
-
+        
         this.on('bye', msg => { //* finished
-            let ch = this.server.channels.get(this.currentChannelID);
+            let ch = this.getChannel();
             
             if (ch) {
                 ch.removeClient(this);
+                // ch.emit('update');
             }
-
-            this.server.destroyClient(this);
         });
 
         this.on('ch', msg => { // TODO ch
@@ -82,7 +86,8 @@ class Client extends EventEmitter {
             // console.log(msg);
             if (!msg._id) return;
             // console.log('has _id')
-            if (typeof msg._id !== 'string') return;
+            if (typeof msg._id !== "string") return;
+            if (msg._id == this.currentChannelID) return;
             // console.log('_id is string');
             let set: ChannelSettings = Database.getDefaultChannelSettings();
             // console.log('got default settings');
@@ -121,11 +126,16 @@ class Client extends EventEmitter {
             // if (typeof msg.t !== 'number') return;
             // if ((msg.t && typeof msg.t !== 'number') || msg.t == null) msg.t = Date.now();
             if (!Array.isArray(msg.n)) return;
-            let ch: Channel = this.server.channels.get(this.currentChannelID);
+            let ch: Channel = this.getChannel();
             
             let p = this.getOwnParticipant();
             
             if (!ch && p._id) return;
+
+            // if (!admin) {
+            //     if (!this.rateLimits.nq.attempt(msg.t)) return;
+            // }
+
             if (ch.settings.crownsolo == true) {
                 if (ch.crown.userId == p._id) {
                     // console.log(msg);
@@ -138,6 +148,7 @@ class Client extends EventEmitter {
         });
 
         this.on('m', (msg, admin) => { // TODO m
+            if (!this.rateLimits.m.attempt()) return;
             this.setCursorPosition(msg.x, msg.y);
         });
 
@@ -151,6 +162,8 @@ class Client extends EventEmitter {
             if (!msg.message) return;
             
             if (typeof msg.message !== 'string') return;
+
+            if (!this.rateLimits.a.attempt()) return;
 
             let ch = this.server.channels.get(this.currentChannelID);
             ch.sendChat(this.getOwnParticipant(), msg);
@@ -178,11 +191,17 @@ class Client extends EventEmitter {
         });
 
         this.on('+ls', (msg, admin) => { // TODO +ls
-            this.subscribeToChannelList();
+            // this.subscribeToChannelList();
+            this.subscribedToChannelList = true;
+            // console.log('subsribe to channel list');
+            let chinfos = this.server.getChannelInfos();
+            this.sendChannelListUpdate(true, chinfos);
         });
-
+        
         this.on('-ls', (msg, admin) => { // TODO -ls
-            this.unsubscribeFromChannelList();
+            // this.unsubscribeFromChannelList();
+            this.subscribedToChannelList = false;
+            // console.log('unsubscribe from channel list');
         });
 
         this.on('admin message', msg => { // TODO admin message
@@ -213,7 +232,11 @@ class Client extends EventEmitter {
             if (!/^#[0-9a-f]{6}$/i.test(msg.color)) return;
             let cl = msg._id ? this.server.findClientBy_ID(msg._id) : this;
             cl.userset({color: msg.color}, admin);
-        })
+        });
+
+        this.on('debug', () => { // TODO remove this
+            // console.log(this.getChannel());
+        });
     }
 
     getOwnParticipant(): PublicUser { //* finished
@@ -222,6 +245,10 @@ class Client extends EventEmitter {
         delete u.flags;
         u.id = this.participantID;
         return u;
+    }
+
+    getChannel(): Channel {
+        return this.server.channels.get(this.currentChannelID);
     }
 
     sendHiMessage(): void { //* finished
@@ -262,6 +289,14 @@ class Client extends EventEmitter {
         } catch (err) {
             
         }
+    }
+
+    sendChannelListUpdate(complete, chinfos) {
+        this.sendArray([{
+            m: 'ls',
+            c: complete,
+            u: chinfos
+        }]);
     }
 
     setCursorPosition(x: number, y: number) {
@@ -319,15 +354,18 @@ class Client extends EventEmitter {
         // console.log('set channel called', this.server.channels);
         // check if server has channel
         if (!this.server.channels.get(_id)) {
-            // console.log('channel does not exist, creating new channel');
+            //console.log('channel does not exist, creating new channel');
             let ch = new Channel(this.server, _id, set, this.getOwnParticipant(), 50, this.cursor.y);
+            //console.log('channel debug'):;
+            //console.log(ch);
+            if (this.currentChannelID == ch._id) this.emit("bye");
             ch.addClient(this);
             this.server.channels.set(_id, ch);
             return;
-        } else {
-            // console.log('channel exists');
-            this.server.channels.get(_id).addClient(this);
         }
+        // console.log('channel exists');
+        this.emit("bye");
+        this.server.channels.get(_id).addClient(this);
     }
 
     sendChannelMessage(ch: Channel) {
@@ -351,13 +389,13 @@ class Client extends EventEmitter {
         this.sendArray([msg]);
     }
 
-    subscribeToChannelList() { // TODO channel listing and subscribing
-        
-    }
+    // subscribeToChannelList() { // TODO channel listing and subscribing
+    //     this.server.setChannelListSubscriber(this.getOwnParticipant()._id);
+    // }
 
-    unsubscribeFromChannelList() { // TODO channel listing and subscribing
-        
-    }
+    // unsubscribeFromChannelList() { // TODO channel listing and subscribing
+    //     this.server.unsetChannelListSubscriber(this.getOwnParticipant()._id);
+    // }
 
     sendParticipantMessage(p, cursor) {
         let msg = {
@@ -393,6 +431,9 @@ class ClientRateLimits {
         for (let key of Object.keys(data)) {
             this[key] = data[key];
         }
+
+        // console.log('rate limit debug -----');
+        // console.log(this);
     }
 }
 
