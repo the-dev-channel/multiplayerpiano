@@ -25,11 +25,8 @@ var Channel = /** @class */ (function (_super) {
         var _this = _super.call(this) || this;
         _this.server = server;
         _this.connectedClients = [];
-        if (typeof _id === 'undefined' || _id == 'undefined') {
-            console.log('WARNING: _id is undefined');
-        }
         _this._id = _id;
-        _this.settings = new ChannelSettings(set);
+        _this.settings = new ChannelSettings(set, undefined, false);
         if (_this.isLobby()) {
             _this.settings.lobby = true;
             var colors = Database_1.Database.getDefaultLobbySettings();
@@ -69,8 +66,16 @@ var Channel = /** @class */ (function (_super) {
             crown: this.crown ? this.crown : undefined
         };
     };
-    Channel.prototype.setSettings = function (set) {
-        this.settings = new ChannelSettings(set);
+    Channel.prototype.setSettings = function (set, admin) {
+        if (admin === void 0) { admin = false; }
+        // if (typeof set.color == 'string' && !set.color2) {
+        //     if (!set.match(/^#[0-9a-f]{6}$/i)) return;
+        //     let c = new Color(set.color);
+        //     c.add(-0x40, -0x40, -0x40);
+        //     set.color2 = c.toHexa();
+        // }
+        this.settings = new ChannelSettings(set, this.settings, admin);
+        this.sendChannelMessageAll();
         this.emit('update');
     };
     Channel.prototype.sendUpdate = function () {
@@ -79,18 +84,16 @@ var Channel = /** @class */ (function (_super) {
     };
     Channel.prototype.addClient = function (cl) {
         //this.applyQuota(cl);
-        if (this.hasClient(cl)) {
-            // console.log('already has client');
-            // this.connectedClients.set(cl.getOwnParticipant()._id, cl);
-            // cl.participantID = this.server.findClientBy_ID(cl.getOwnParticipant()._id).participantID;
-            // find the old client ids and update them
-            this.connectedClients.find(function (c) { return c._id == cl.getOwnParticipant()._id; }).id = cl.participantID;
+        if (this.hasParticipant(cl.getOwnParticipant())) {
+            this.connectedClients.find(function (p) {
+                p._id == cl.getOwnParticipant()._id;
+            }).ids.push(cl.getOwnParticipant().id);
         }
         else {
             // console.log('does not have client');
             this.connectedClients.push({
-                id: cl.participantID,
-                _id: cl.getOwnParticipant()._id
+                _id: cl.getOwnParticipant()._id,
+                ids: [cl.getOwnParticipant().id]
             });
         }
         // console.log(this.connectedClients);
@@ -107,7 +110,7 @@ var Channel = /** @class */ (function (_super) {
         // this.sendByeMessageAll(cl.participantID);
         // remove the user's _id from the array
         // remove this user's _id from the connected clients array
-        this.connectedClients.splice(this.connectedClients.indexOf({ _id: cl.getOwnParticipant()._id, id: cl.participantID }), 1);
+        this.connectedClients.splice(this.connectedClients.indexOf(this.connectedClients.find(function (p) { return p._id == cl.getOwnParticipant()._id; })), 1);
         // console.log(this.connectedClients);
         this.sendChannelMessageAll();
         this.sendByeMessageAll(cl.participantID);
@@ -115,9 +118,24 @@ var Channel = /** @class */ (function (_super) {
     };
     Channel.prototype.hasClient = function (cl) {
         for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var _b = _a[_i], _id = _b._id, id = _b.id;
-            if (cl.participantID == id) {
-                return true;
+            var _b = _a[_i], _id = _b._id, ids = _b.ids;
+            for (var _c = 0, ids_1 = ids; _c < ids_1.length; _c++) {
+                var id = ids_1[_c];
+                if (cl.participantID == id) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    Channel.prototype.hasParticipant = function (p) {
+        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
+            var _b = _a[_i], _id = _b._id, ids = _b.ids;
+            for (var _c = 0, ids_2 = ids; _c < ids_2.length; _c++) {
+                var id = ids_2[_c];
+                if (p._id == _id) {
+                    return true;
+                }
             }
         }
         return false;
@@ -153,10 +171,24 @@ var Channel = /** @class */ (function (_super) {
         //     }
         // });
         for (var _b = 0, _c = this.connectedClients; _b < _c.length; _b++) {
-            var _d = _c[_b], _id = _d._id, id = _d.id;
-            var cl = this.server.findClientByID(id);
-            if (cl.participantID !== p.id) {
-                cl.sendArray([msg]);
+            var _d = _c[_b], _id = _d._id, ids = _d.ids;
+            for (var _e = 0, ids_3 = ids; _e < ids_3.length; _e++) {
+                var id = ids_3[_e];
+                var cl = this.server.findClientByID(id);
+                if (cl.participantID !== p.id) {
+                    cl.sendArray([msg]);
+                }
+            }
+        }
+    };
+    Channel.prototype.findParticipantById = function (id) {
+        for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
+            var _b = _a[_i], _id = _b._id, ids = _b.ids;
+            for (var _c = 0, ids_4 = ids; _c < ids_4.length; _c++) {
+                var id_1 = ids_4[_c];
+                if (id_1 == id_1) {
+                    return this.server.findClientByID(id_1);
+                }
             }
         }
     };
@@ -173,14 +205,49 @@ var Channel = /** @class */ (function (_super) {
         var _this = this;
         // console.log("This is running.")
         this.connectedClients.forEach(function (_a) {
-            var _id = _a._id, id = _a.id;
-            // console.log(_id);
-            var cl = _this.server.findClientByID(id);
-            // if (cl.currentChannelID !== this._id) {
-            // console.log('sendChannelMessageAll ' + cl.participantID, cl.getOwnParticipant()._id);
-            // }
-            cl.sendChannelMessage(_this);
+            var _id = _a._id, ids = _a.ids;
+            for (var _i = 0, ids_5 = ids; _i < ids_5.length; _i++) {
+                var id = ids_5[_i];
+                // console.log(_id);
+                var cl = _this.server.findClientByID(id);
+                // if (cl.currentChannelID !== this._id) {
+                // console.log('sendChannelMessageAll ' + cl.participantID, cl.getOwnParticipant()._id);
+                // }
+                cl.sendChannelMessage(_this);
+            }
         });
+    };
+    Channel.prototype.setCrown = function (p, id, admin) {
+        if (admin === void 0) { admin = false; }
+        if (!admin && id !== p.id)
+            return;
+        if (!this.canChown(p.id))
+            return;
+        if (!id) {
+            this.dropCrown();
+        }
+        else {
+            if (!this.hasParticipant(p)) {
+            }
+        }
+    };
+    Channel.prototype.dropCrown = function () {
+        this.crown.startPos.x = 50;
+        this.crown.startPos.y = this.server.findClientBy_ID(this.crown.userId).cursor.y || 50;
+        delete this.crown.participantId;
+        delete this.crown.userId;
+    };
+    Channel.prototype.canChown = function (participantId, admin) {
+        if (admin === void 0) { admin = false; }
+        if (admin)
+            return true;
+        if (!this.crown)
+            return false;
+        if (this.crown.participantId === participantId)
+            return true;
+        if (this.crown.time >= Date.now() + 15000)
+            return true;
+        return false;
     };
     Channel.prototype.sendByeMessageAll = function (id) {
         this.sendArray([{
@@ -207,14 +274,17 @@ var Channel = /** @class */ (function (_super) {
         //     cl.sendArray(arr);
         // });
         for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var _b = _a[_i], _id = _b._id, id = _b.id;
-            // console.log('id: ', id);
-            var cl = this.server.findClientByID(id);
-            // console.log(cl);
-            // console.log(cl);
-            if (cl.currentChannelID !== this._id)
-                continue;
-            cl.sendArray(arr);
+            var _b = _a[_i], _id = _b._id, ids = _b.ids;
+            for (var _c = 0, ids_6 = ids; _c < ids_6.length; _c++) {
+                var id = ids_6[_c];
+                // console.log('id: ', id);
+                var cl = this.server.findClientByID(id);
+                // console.log(cl);
+                // console.log(cl);
+                if (cl.currentChannelID !== this._id)
+                    continue;
+                cl.sendArray(arr);
+            }
         }
     };
     Channel.prototype.sendUserUpdate = function (user, x, y) {
@@ -226,20 +296,26 @@ var Channel = /** @class */ (function (_super) {
         //     cl.sendParticipantMessage(user, {x: x, y: y});
         // });
         for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var _b = _a[_i], _id = _b._id, id = _b.id;
-            var cl = this.server.findClientByID(id);
-            cl.sendParticipantMessage(user, { x: x, y: y });
+            var _b = _a[_i], _id = _b._id, ids = _b.ids;
+            for (var _c = 0, ids_7 = ids; _c < ids_7.length; _c++) {
+                var id = ids_7[_c];
+                var cl = this.server.findClientByID(id);
+                cl.sendParticipantMessage(user, { x: x, y: y });
+            }
         }
     };
     Channel.prototype.getParticipantList = function () {
         // console.log('getting participant list');
         var ppl = [];
         for (var _i = 0, _a = this.connectedClients; _i < _a.length; _i++) {
-            var _b = _a[_i], _id = _b._id, id = _b.id;
-            var cl = this.server.findClientByID(id);
-            if (!cl.getOwnParticipant())
-                return;
-            ppl.push(cl.getOwnParticipant());
+            var _b = _a[_i], _id = _b._id, ids = _b.ids;
+            for (var _c = 0, ids_8 = ids; _c < ids_8.length; _c++) {
+                var id = ids_8[_c];
+                var cl = this.server.findClientByID(id);
+                if (!cl.getOwnParticipant())
+                    return;
+                ppl.push(cl.getOwnParticipant());
+            }
         }
         // this.connectedClients.forEach(_id => {
         //     let cl = this.server.findClientBy_ID(_id);
@@ -253,7 +329,7 @@ var Channel = /** @class */ (function (_super) {
 }(stream_1.EventEmitter));
 exports.Channel = Channel;
 var ChannelSettings = /** @class */ (function () {
-    function ChannelSettings(set, admin) {
+    function ChannelSettings(set, oldset, admin) {
         if (admin === void 0) { admin = false; }
         // set defaults
         var def = Database_1.Database.getDefaultChannelSettings();
@@ -261,15 +337,26 @@ var ChannelSettings = /** @class */ (function () {
             var key = _a[_i];
             this[key] = def[key];
         }
+        if (oldset) {
+            for (var _b = 0, _c = Object.keys(oldset); _b < _c.length; _b++) {
+                var key = _c[_b];
+                this[key] = oldset[key];
+            }
+        }
         // set values
-        for (var _b = 0, _c = Object.keys(set); _b < _c.length; _b++) {
-            var key = _c[_b];
-            if (typeof set[key] === ChannelSettings.VALID[key]) {
-                if (ChannelSettings.ADMIN_ONLY.indexOf(key) !== -1) {
-                    if (!admin)
-                        continue;
+        for (var _d = 0, _e = Object.keys(set); _d < _e.length; _d++) {
+            var key = _e[_d];
+            if (ChannelSettings.ADMIN_ONLY.indexOf(key) !== -1 && !admin)
+                continue;
+            if (typeof ChannelSettings.VALID[key] === "function") {
+                if (ChannelSettings.VALID[key](set[key])) {
+                    this[key] = set[key];
                 }
-                this[key] = set[key];
+            }
+            else {
+                if (typeof set[key] === ChannelSettings.VALID[key]) {
+                    this[key] = set[key];
+                }
             }
         }
     }

@@ -49,11 +49,20 @@ var MPP_HTTPS_ENABLED = process.env.MPP_HTTPS_ENABLED;
 var MPP_HTTPS_PORT = process.env.MPP_HTTPS_PORT;
 var MPP_HTTP_ENABLED = process.env.MPP_HTTP_ENABLED;
 var MPP_HTTP_PORT = process.env.MPP_HTTP_PORT;
+var MPP_KEY_PATH = process.env.MPP_KEY_PATH;
+var MPP_CERT_PATH = process.env.MPP_CERT_PATH;
+var MPP_START_DELAY = process.env.MPP_START_DELAY;
 var WebServer = /** @class */ (function () {
     function WebServer(server) {
         this.server = server;
-        this.startServers();
+        this.startDelayed();
     }
+    WebServer.prototype.startDelayed = function () {
+        var _this = this;
+        setTimeout(function () {
+            _this.startServers();
+        }, parseFloat(MPP_START_DELAY));
+    };
     WebServer.prototype.startServers = function () {
         var _this = this;
         this.app = express();
@@ -66,6 +75,8 @@ var WebServer = /** @class */ (function () {
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
+                        if (!this.server.wsServer.canConnect)
+                            return [2 /*return*/];
                         _b = (_a = res).write;
                         return [4 /*yield*/, readFile((0, path_1.join)('static', 'index.html').toString())];
                     case 1:
@@ -79,8 +90,8 @@ var WebServer = /** @class */ (function () {
         var enableHttp = MPP_HTTP_ENABLED == "true";
         if (enableHttps) {
             this.httpsServer = https.createServer({
-                key: 'placeholder',
-                cert: 'placeholder' //! TODO fix placeholders
+                key: (0, fs_1.readFileSync)(MPP_KEY_PATH),
+                cert: (0, fs_1.readFileSync)(MPP_CERT_PATH)
             }, this.app);
             this.httpsServer.on('upgrade', function (req, socket, head) {
                 if (!Database_1.Database.ready) {
@@ -88,7 +99,7 @@ var WebServer = /** @class */ (function () {
                 }
                 _this.server.wsServer.handleUpgrade(req, socket, head);
             });
-            this.httpsServer.listen(MPP_HTTP_PORT);
+            this.httpsServer.listen(MPP_HTTPS_PORT);
         }
         if (enableHttp) {
             this.httpServer = http.createServer(this.app);

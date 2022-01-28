@@ -56,7 +56,7 @@ var Database = /** @class */ (function () {
                         return [4 /*yield*/, this.client.connect()];
                     case 1:
                         _a.sent();
-                        console.log('database connected');
+                        // console.log('database connected');
                         this.db = this.client.db('multiplayerpiano');
                         this.userCollection = this.db.collection('users');
                         // this.changeStream = this.userCollection.watch({
@@ -183,19 +183,15 @@ var Database = /** @class */ (function () {
         // return motd;
     };
     Database.getDefaultChannelSettings = function () {
-        // console.log('getting default channel settings');
         var color = new Color_1.Color(59, 80, 84);
-        // console.log('color1 got');
         var color2 = new Color_1.Color(color.toHexa());
-        // console.log('color2 got');
         color2.add(-64, -64, -64);
-        // console.log('color2 added');
         return {
             crownsolo: false,
             lobby: false,
             visible: true,
             color: color.toHexa(),
-            color2: color2.toHexa(),
+            // color2: color2.toHexa(),
             chat: true
         };
     };

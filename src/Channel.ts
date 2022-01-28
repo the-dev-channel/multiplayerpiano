@@ -1,5 +1,6 @@
 import { EventEmitter } from "stream";
 import { Client } from "./Client";
+import { Color } from "./Color";
 import { Database } from "./Database";
 import { PublicUser, User } from "./models/User";
 import { RateLimitChain } from "./RateLimit";
@@ -32,7 +33,7 @@ class Channel extends EventEmitter { // TODO channel
     server: Server;
     _id: string;
     settings: ChannelSettings;
-    connectedClients: {id: string, _id: string}[];
+    connectedClients: {_id: string, ids: string[]}[];
     crown?: Crown;
     chatHistory: any[];
     destroyTimeout: any;
@@ -42,13 +43,9 @@ class Channel extends EventEmitter { // TODO channel
 
         this.server = server;
         this.connectedClients = [];
-
-        if (typeof _id === 'undefined' || _id == 'undefined') {
-            console.log('WARNING: _id is undefined');
-        }
         
         this._id = _id;
-        this.settings = new ChannelSettings(set);
+        this.settings = new ChannelSettings(set, undefined, false);
         
         if (this.isLobby()) {
             this.settings.lobby = true;
@@ -92,8 +89,15 @@ class Channel extends EventEmitter { // TODO channel
         }
     }
 
-    setSettings(set) {
-        this.settings = new ChannelSettings(set);
+    setSettings(set: any, admin: boolean = false) {
+        // if (typeof set.color == 'string' && !set.color2) {
+        //     if (!set.match(/^#[0-9a-f]{6}$/i)) return;
+        //     let c = new Color(set.color);
+        //     c.add(-0x40, -0x40, -0x40);
+        //     set.color2 = c.toHexa();
+        // }
+        this.settings = new ChannelSettings(set, this.settings, admin);
+        this.sendChannelMessageAll();
         this.emit('update');
     }
 
@@ -105,18 +109,15 @@ class Channel extends EventEmitter { // TODO channel
     addClient(cl: Client) {
         //this.applyQuota(cl);
 
-        if (this.hasClient(cl)) {
-            // console.log('already has client');
-            // this.connectedClients.set(cl.getOwnParticipant()._id, cl);
-            // cl.participantID = this.server.findClientBy_ID(cl.getOwnParticipant()._id).participantID;
-            
-            // find the old client ids and update them
-            this.connectedClients.find(c => c._id == cl.getOwnParticipant()._id).id = cl.participantID;
+        if (this.hasParticipant(cl.getOwnParticipant())) {
+            this.connectedClients.find(p => {
+                p._id == cl.getOwnParticipant()._id;
+            }).ids.push(cl.getOwnParticipant().id);
         } else {
             // console.log('does not have client');
             this.connectedClients.push({
-                id: cl.participantID,
-                _id: cl.getOwnParticipant()._id
+                _id: cl.getOwnParticipant()._id,
+                ids: [cl.getOwnParticipant().id]
             });
         }
 
@@ -139,7 +140,7 @@ class Channel extends EventEmitter { // TODO channel
 
         // remove the user's _id from the array
         // remove this user's _id from the connected clients array
-        this.connectedClients.splice(this.connectedClients.indexOf({_id: cl.getOwnParticipant()._id, id: cl.participantID}), 1);
+        this.connectedClients.splice(this.connectedClients.indexOf(this.connectedClients.find(p => p._id == cl.getOwnParticipant()._id)), 1);
         // console.log(this.connectedClients);
         this.sendChannelMessageAll();
 
@@ -149,9 +150,23 @@ class Channel extends EventEmitter { // TODO channel
     }
 
     hasClient(cl: Client): boolean {
-        for (let {_id, id} of this.connectedClients) {
-            if (cl.participantID == id) {
-                return true;
+        for (let {_id, ids} of this.connectedClients) {
+            for (let id of ids) {
+                if (cl.participantID == id) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    hasParticipant(p: PublicUser) {
+        for (let {_id, ids} of this.connectedClients) {
+            for (let id of ids) {
+                if (p._id == _id) {
+                    return true;
+                }
             }
         }
 
@@ -195,10 +210,22 @@ class Channel extends EventEmitter { // TODO channel
         //     }
         // });
 
-        for (let {_id, id} of this.connectedClients) {
-            let cl = this.server.findClientByID(id);
-            if (cl.participantID !== p.id) {
-                cl.sendArray([msg]);
+        for (let {_id, ids} of this.connectedClients) {
+            for (let id of ids) {
+                let cl = this.server.findClientByID(id);
+                if (cl.participantID !== p.id) {
+                    cl.sendArray([msg]);
+                }
+            }
+        }
+    }
+
+    findParticipantById(id: string) {
+        for (let {_id, ids} of this.connectedClients) {
+            for (let id of ids) {
+                if (id == id) {
+                    return this.server.findClientByID(id);
+                }
             }
         }
     }
@@ -216,14 +243,43 @@ class Channel extends EventEmitter { // TODO channel
 
     sendChannelMessageAll() {
         // console.log("This is running.")
-        this.connectedClients.forEach(({_id, id}) => {
-            // console.log(_id);
-            let cl = this.server.findClientByID(id);
-            // if (cl.currentChannelID !== this._id) {
-                // console.log('sendChannelMessageAll ' + cl.participantID, cl.getOwnParticipant()._id);
-            // }
-            cl.sendChannelMessage(this);
+        this.connectedClients.forEach(({_id, ids}) => {
+            for (let id of ids) {
+                // console.log(_id);
+                let cl = this.server.findClientByID(id);
+                // if (cl.currentChannelID !== this._id) {
+                    // console.log('sendChannelMessageAll ' + cl.participantID, cl.getOwnParticipant()._id);
+                // }
+                cl.sendChannelMessage(this);
+            }
         });
+    }
+
+    setCrown(p: PublicUser, id?: string, admin: boolean = false) {
+        if (!admin && id !== p.id) return;
+        if (!this.canChown(p.id)) return;
+        if (!id) {
+            this.dropCrown();
+        } else {
+            if (!this.hasParticipant(p)) {
+
+            }
+        }
+    }
+
+    dropCrown() {
+        this.crown.startPos.x = 50;
+        this.crown.startPos.y = this.server.findClientBy_ID(this.crown.userId).cursor.y || 50;
+        delete this.crown.participantId;
+        delete this.crown.userId;
+    }
+
+    canChown(participantId: string, admin: boolean = false) {
+        if (admin) return true;
+        if (!this.crown) return false;
+        if (this.crown.participantId === participantId) return true;
+        if (this.crown.time >= Date.now() + 15000) return true;
+        return false;
     }
 
     sendByeMessageAll(id: string): void {
@@ -255,13 +311,15 @@ class Channel extends EventEmitter { // TODO channel
         //     cl.sendArray(arr);
         // });
 
-        for (let {_id, id} of this.connectedClients) {
-            // console.log('id: ', id);
-            let cl = this.server.findClientByID(id);
-            // console.log(cl);
-            // console.log(cl);
-            if (cl.currentChannelID !== this._id) continue;
-            cl.sendArray(arr);
+        for (let {_id, ids} of this.connectedClients) {
+            for (let id of ids) {
+                // console.log('id: ', id);
+                let cl = this.server.findClientByID(id);
+                // console.log(cl);
+                // console.log(cl);
+                if (cl.currentChannelID !== this._id) continue;
+                cl.sendArray(arr);
+            }
         }
     }
 
@@ -275,9 +333,11 @@ class Channel extends EventEmitter { // TODO channel
         //     cl.sendParticipantMessage(user, {x: x, y: y});
         // });
 
-        for (let {_id, id} of this.connectedClients) {
-            let cl = this.server.findClientByID(id);
-            cl.sendParticipantMessage(user, {x: x, y: y});
+        for (let {_id, ids} of this.connectedClients) {
+            for (let id of ids) {
+                let cl = this.server.findClientByID(id);
+                cl.sendParticipantMessage(user, {x: x, y: y});
+            }
         }
     }
 
@@ -285,10 +345,12 @@ class Channel extends EventEmitter { // TODO channel
         // console.log('getting participant list');
         let ppl = [];
 
-        for (let {_id, id} of this.connectedClients) {
-            let cl = this.server.findClientByID(id);
-            if (!cl.getOwnParticipant()) return;
-            ppl.push(cl.getOwnParticipant());
+        for (let {_id, ids} of this.connectedClients) {
+            for (let id of ids) {
+                let cl = this.server.findClientByID(id);
+                if (!cl.getOwnParticipant()) return;
+                ppl.push(cl.getOwnParticipant());
+            }
         }
 
         // this.connectedClients.forEach(_id => {
@@ -333,20 +395,30 @@ class ChannelSettings {
         "lyrical notes"
     ]
 
-    constructor (set, admin: boolean = false) {
+    constructor (set: any, oldset?: any, admin: boolean = false) {
         // set defaults
         let def = Database.getDefaultChannelSettings();
         for (let key of Object.keys(def)) {
             this[key] = def[key];
         }
 
+        if (oldset) {
+            for (let key of Object.keys(oldset)) {
+                this[key] = oldset[key];
+            }
+        }
+
         // set values
         for (let key of Object.keys(set)) {
-            if (typeof set[key] === ChannelSettings.VALID[key]) {
-                if (ChannelSettings.ADMIN_ONLY.indexOf(key) !== -1) {
-                    if (!admin) continue;
+            if (ChannelSettings.ADMIN_ONLY.indexOf(key) !== -1 && !admin) continue;
+            if (typeof ChannelSettings.VALID[key] === "function") {
+                if (ChannelSettings.VALID[key](set[key])) {
+                    this[key] = set[key];
                 }
-                this[key] = set[key];
+            } else {
+                if (typeof set[key] === ChannelSettings.VALID[key]) {
+                    this[key] = set[key];
+                }
             }
         }
     }

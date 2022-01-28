@@ -127,7 +127,7 @@ var Client = /** @class */ (function (_super) {
             var set = Database_1.Database.getDefaultChannelSettings();
             // console.log('got default settings');
             if (msg.set)
-                set = msg.set; // TODO chset from ch
+                set = msg.set;
             // console.log("set: ");
             // console.log(set);
             _this.setChannel(msg._id, set);
@@ -211,7 +211,7 @@ var Client = /** @class */ (function (_super) {
             if (msg.set.name.length > 40)
                 return;
             var colorEnabled = false;
-            var isAdmin = false;
+            var isAdmin = admin;
             if (colorEnabled && msg.set.color) {
                 // check color regex
                 if (!/^#[0-9a-f]{6}$/i.test(msg.set.color))
@@ -220,6 +220,19 @@ var Client = /** @class */ (function (_super) {
             _this.userset({ name: msg.set.name, color: msg.set.color }, isAdmin);
         });
         this.on('chset', function (msg, admin) {
+            var _a;
+            if (!msg.set)
+                return;
+            var ch = _this.getChannel();
+            if (!admin && (((_a = ch.crown) === null || _a === void 0 ? void 0 : _a.userId) !== _this.getOwnParticipant()._id))
+                return;
+            ch.setSettings(msg.set, admin);
+        });
+        this.on('chown', function (msg, admin) {
+            if (msg.id && typeof msg.id !== 'string')
+                delete msg.id;
+            var ch = _this.getChannel();
+            ch.setCrown(_this.getOwnParticipant(), msg.id, admin);
         });
         this.on('+ls', function (msg, admin) {
             // this.subscribeToChannelList();
@@ -267,9 +280,6 @@ var Client = /** @class */ (function (_super) {
                 return;
             var cl = msg._id ? _this.server.findClientBy_ID(msg._id) : _this;
             cl.userset({ color: msg.color }, admin);
-        });
-        this.on('debug', function () {
-            // console.log(this.getChannel());
         });
     };
     Client.prototype.getOwnParticipant = function () {

@@ -1,10 +1,9 @@
 import express = require('express');
 import { Server } from './Server';
-import { WebSocketServer } from './WebSocketServer';
 import https = require('https');
 import http = require('http');
 import { join } from 'path';
-import { readFile as rf } from 'fs';
+import { readFile as rf, readFileSync } from 'fs';
 import { promisify } from 'util';
 import { Database } from './Database';
 
@@ -16,6 +15,11 @@ const MPP_HTTPS_PORT = process.env.MPP_HTTPS_PORT;
 const MPP_HTTP_ENABLED = process.env.MPP_HTTP_ENABLED;
 const MPP_HTTP_PORT = process.env.MPP_HTTP_PORT;
 
+const MPP_KEY_PATH = process.env.MPP_KEY_PATH;
+const MPP_CERT_PATH = process.env.MPP_CERT_PATH;
+
+const MPP_START_DELAY = process.env.MPP_START_DELAY;
+
 class WebServer {
     server: Server;
     app: express.Express;
@@ -24,7 +28,13 @@ class WebServer {
 
     constructor (server: Server) {
         this.server = server;
-        this.startServers();
+        this.startDelayed();
+    }
+
+    startDelayed() {
+        setTimeout(() => {
+            this.startServers();
+        }, parseFloat(MPP_START_DELAY));
     }
 
     startServers() {
@@ -37,6 +47,7 @@ class WebServer {
         this.app.use('/sounds', router);
 
         this.app.get('*', async (req, res) => {
+            if (!this.server.wsServer.canConnect) return;
             res.write(await readFile(join('static', 'index.html').toString()));
             res.end();
         });
@@ -46,8 +57,8 @@ class WebServer {
 
         if (enableHttps) {
             this.httpsServer = https.createServer({
-                key: 'placeholder', //! TODO fix placeholders
-                cert: 'placeholder' //! TODO fix placeholders
+                key: readFileSync(MPP_KEY_PATH),
+                cert: readFileSync(MPP_CERT_PATH)
             }, this.app);
 
             this.httpsServer.on('upgrade', (req, socket, head) => {
@@ -58,7 +69,7 @@ class WebServer {
                 this.server.wsServer.handleUpgrade(req, socket, head);
             });
 
-            this.httpsServer.listen(MPP_HTTP_PORT);
+            this.httpsServer.listen(MPP_HTTPS_PORT);
         }
 
         if (enableHttp) {

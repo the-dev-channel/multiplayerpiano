@@ -6,6 +6,8 @@ import { Client } from './Client';
 import { Crypto } from "./Crypto";
 import { Socket } from "net";
 
+const MPP_START_DELAY = process.env.MPP_START_DELAY;
+
 class WebSocketServer {
     server: Server;
     wss: WebSocket.Server;
@@ -15,7 +17,6 @@ class WebSocketServer {
     constructor (server: Server) {
         this.server = server;
         this.canConnect = false;
-        this.delayTime = 5000;
 
         this.wss = new WebSocket.Server({
             noServer: true
@@ -28,7 +29,7 @@ class WebSocketServer {
     startDelayed() {
         setTimeout(() => {
             this.start();
-        }, this.delayTime);
+        }, parseFloat(MPP_START_DELAY));
     }
 
     start() {

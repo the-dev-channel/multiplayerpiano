@@ -1,5 +1,4 @@
 import { IncomingMessage } from 'http';
-import { AddressInfo } from 'net';
 import { EventEmitter } from 'stream';
 import * as WebSocket from 'ws';
 import { Channel, ChannelSettings } from './Channel';
@@ -80,7 +79,7 @@ class Client extends EventEmitter {
             }
         });
 
-        this.on('ch', msg => { // TODO ch
+        this.on('ch', msg => {
             if (this.ws.readyState !== WebSocket.OPEN) return;
             // console.log('---ch debug---');
             // console.log(msg);
@@ -91,7 +90,7 @@ class Client extends EventEmitter {
             // console.log('_id is string');
             let set: ChannelSettings = Database.getDefaultChannelSettings();
             // console.log('got default settings');
-            if (msg.set) set = msg.set; // TODO chset from ch
+            if (msg.set) set = msg.set;
             // console.log("set: ");
             // console.log(set);
             this.setChannel(msg._id, set);
@@ -169,7 +168,7 @@ class Client extends EventEmitter {
             ch.sendChat(this.getOwnParticipant(), msg);
         });
 
-        this.on('userset', (msg, admin) => { // TODO userset
+        this.on('userset', (msg, admin) => {
             if (!msg.set) return;
             if (!msg.set.name && !msg.set.color) return;
             if (typeof msg.set.name !== 'string') return;
@@ -177,7 +176,7 @@ class Client extends EventEmitter {
             if (msg.set.name.length > 40) return;
             
             let colorEnabled = false;
-            let isAdmin = false;
+            let isAdmin = admin;
             if (colorEnabled && msg.set.color) {
                 // check color regex
                 if (!/^#[0-9a-f]{6}$/i.test(msg.set.color)) return;
@@ -186,8 +185,18 @@ class Client extends EventEmitter {
             this.userset({name: msg.set.name, color: msg.set.color}, isAdmin);
         });
 
-        this.on('chset', (msg, admin) => { // TODO chset
+        this.on('chset', (msg, admin) => {
+            if (!msg.set) return;
+            let ch = this.getChannel();
+            
+            if (!admin && (ch.crown?.userId !== this.getOwnParticipant()._id)) return;
+            ch.setSettings(msg.set, admin);
+        });
 
+        this.on('chown', (msg, admin) => {
+            if (msg.id && typeof msg.id !== 'string') delete msg.id;
+            let ch = this.getChannel();
+            ch.setCrown(this.getOwnParticipant(), msg.id, admin);
         });
 
         this.on('+ls', (msg, admin) => { // TODO +ls
@@ -232,10 +241,6 @@ class Client extends EventEmitter {
             if (!/^#[0-9a-f]{6}$/i.test(msg.color)) return;
             let cl = msg._id ? this.server.findClientBy_ID(msg._id) : this;
             cl.userset({color: msg.color}, admin);
-        });
-
-        this.on('debug', () => { // TODO remove this
-            // console.log(this.getChannel());
         });
     }
 

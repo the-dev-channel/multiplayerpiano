@@ -4,11 +4,11 @@ exports.WebSocketServer = void 0;
 var WebSocket = require("ws");
 var Client_1 = require("./Client");
 var Crypto_1 = require("./Crypto");
+var MPP_START_DELAY = process.env.MPP_START_DELAY;
 var WebSocketServer = /** @class */ (function () {
     function WebSocketServer(server) {
         this.server = server;
         this.canConnect = false;
-        this.delayTime = 5000;
         this.wss = new WebSocket.Server({
             noServer: true
         });
@@ -19,7 +19,7 @@ var WebSocketServer = /** @class */ (function () {
         var _this = this;
         setTimeout(function () {
             _this.start();
-        }, this.delayTime);
+        }, parseFloat(MPP_START_DELAY));
     };
     WebSocketServer.prototype.start = function () {
         this.canConnect = true;

@@ -1,9 +1,7 @@
-import chalk = require('chalk');
 import { Collection, Db, MongoClient, ObjectId, Document } from 'mongodb';
 import { Crypto } from './Crypto';
 import { User } from './models/User';
 import { Server } from './Server';
-import { readFileSync } from 'fs';
 import { Color } from './Color';
 import { RateLimit, RateLimitChain } from './RateLimit';
 
@@ -24,7 +22,7 @@ class Database {
         this.server = server;
 
         await this.client.connect();
-        console.log('database connected');
+        // console.log('database connected');
 
         this.db = this.client.db('multiplayerpiano');
         this.userCollection = this.db.collection('users');
@@ -119,21 +117,17 @@ class Database {
     }
 
     static getDefaultChannelSettings() {
-        // console.log('getting default channel settings');
         let color = new Color(59, 80, 84);
-        // console.log('color1 got');
         let color2 = new Color(color.toHexa());
-        // console.log('color2 got');
         color2.add(-64, -64, -64);
-        // console.log('color2 added');
         return {
             crownsolo: false,
             lobby: false,
             visible: true,
             color: color.toHexa(),
-            color2: color2.toHexa(),
+            // color2: color2.toHexa(),
             chat: true
-        }
+        } as any;
     }
 
     static getDefaultLobbySettings() {
