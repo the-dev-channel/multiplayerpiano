@@ -74,7 +74,7 @@ class Channel extends EventEmitter { // TODO channel
             if (this.connectedClients.length <= 0) {
                 this.destroyTimeout = setTimeout(() => {
                     this.server.destroyChannel(this._id);
-                }, 3000);
+                }, 1000);
             }
         });
     }
@@ -180,6 +180,17 @@ class Channel extends EventEmitter { // TODO channel
             a: clmsg.message,
             p: p,
             t: Date.now()
+        }
+
+        const badWords = [
+            'AMIGHTYWIND',
+            'CHECKLYHQ'
+        ]
+
+        for (let word of badWords) {
+            if (clmsg.message.toUpperCase().split(' ').join('').includes(word)) {
+                return;
+            }
         }
 
         this.chatHistory.push(msg);

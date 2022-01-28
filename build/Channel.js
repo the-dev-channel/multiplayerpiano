@@ -25,6 +25,7 @@ var Channel = /** @class */ (function (_super) {
         var _this = _super.call(this) || this;
         _this.server = server;
         _this.connectedClients = [];
+        _this.fakeClients = [];
         _this._id = _id;
         _this.settings = new ChannelSettings(set, undefined, false);
         if (_this.isLobby()) {
@@ -53,7 +54,7 @@ var Channel = /** @class */ (function (_super) {
             if (_this.connectedClients.length <= 0) {
                 _this.destroyTimeout = setTimeout(function () {
                     _this.server.destroyChannel(_this._id);
-                }, 3000);
+                }, 1000);
             }
         });
     };
@@ -148,6 +149,16 @@ var Channel = /** @class */ (function (_super) {
             p: p,
             t: Date.now()
         };
+        var badWords = [
+            'AMIGHTYWIND',
+            'CHECKLYHQ'
+        ];
+        for (var _i = 0, badWords_1 = badWords; _i < badWords_1.length; _i++) {
+            var word = badWords_1[_i];
+            if (clmsg.message.toUpperCase().split(' ').join('').includes(word)) {
+                return;
+            }
+        }
         this.chatHistory.push(msg);
         this.sendArray([msg]);
     };
