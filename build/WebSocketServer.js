@@ -4,6 +4,9 @@ exports.WebSocketServer = void 0;
 var WebSocket = require("ws");
 var Client_1 = require("./Client");
 var Crypto_1 = require("./Crypto");
+//! we can't let people connect before the database is connected
+//! and instead of making this async, we'll just wait for the database
+//! nobody said we had to be good programmers
 var MPP_START_DELAY = process.env.MPP_START_DELAY;
 var WebSocketServer = /** @class */ (function () {
     function WebSocketServer(server) {

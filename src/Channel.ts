@@ -1,3 +1,11 @@
+/**
+ * Multiplayer Piano Server
+ * Copyright (c) The Dev Channel 2020-2022
+ * Licensed under the GPL v3.0 license
+ * 
+ * Channel module
+ */
+
 import { EventEmitter } from "stream";
 import { Client } from "./Client";
 import { Color } from "./Color";

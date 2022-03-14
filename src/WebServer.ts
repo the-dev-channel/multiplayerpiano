@@ -1,3 +1,11 @@
+/**
+ * Multiplayer Piano Server
+ * Copyright (c) The Dev Channel 2020-2022
+ * Licensed under the GPL v3.0 license
+ * 
+ * Express server module
+ */
+
 import express = require('express');
 import { Server } from './Server';
 import https = require('https');

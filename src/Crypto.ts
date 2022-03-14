@@ -1,3 +1,11 @@
+/**
+ * Multiplayer Piano Server
+ * Copyright (c) The Dev Channel 2020-2022
+ * Licensed under the GPL v3.0 license
+ * 
+ * ID generator module
+ */
+
 import crypto = require('crypto');
 
 const MPP_SALT = process.env.MPP_SALT;

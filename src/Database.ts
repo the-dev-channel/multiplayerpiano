@@ -1,3 +1,11 @@
+/**
+ * Multiplayer Piano Server
+ * Copyright (c) The Dev Channel 2020-2022
+ * Licensed under the GPL v3.0 license
+ * 
+ * MongoDB database connection module
+ */
+
 import { Collection, Db, MongoClient, ObjectId, Document } from 'mongodb';
 import { Crypto } from './Crypto';
 import { User } from './models/User';

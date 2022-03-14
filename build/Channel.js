@@ -25,7 +25,6 @@ var Channel = /** @class */ (function (_super) {
         var _this = _super.call(this) || this;
         _this.server = server;
         _this.connectedClients = [];
-        _this.fakeClients = [];
         _this._id = _id;
         _this.settings = new ChannelSettings(set, undefined, false);
         if (_this.isLobby()) {

@@ -281,6 +281,9 @@ var Client = /** @class */ (function (_super) {
             var cl = msg._id ? _this.server.findClientBy_ID(msg._id) : _this;
             cl.userset({ color: msg.color }, admin);
         });
+        this.on('debug', function (msg, admin) {
+            console.log(_this);
+        });
     };
     Client.prototype.getOwnParticipant = function () {
         var u = this.user;

@@ -1,3 +1,13 @@
+/**
+ * Multiplayer Piano Server
+ * Copyright (c) The Dev Channel 2020-2022
+ * Licensed under the GPL v3.0 license
+ * 
+ * User color module
+ * Original Color.js written by Brandon Lockaby
+ * Rewritten in TypeScript by Hri7566
+ */
+
 class Color {
 	r: number;
 	g: number;

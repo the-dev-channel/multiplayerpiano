@@ -1,3 +1,13 @@
+/**
+ * Multiplayer Piano Server
+ * Copyright (c) The Dev Channel 2020-2022
+ * Licensed under the GPL v3.0 license
+ * 
+ * RateLimit module
+ * Original RateLimit.js written by Brandon Lockaby
+ * Rewritten in TypeScript by Hri7566
+ */
+
 class RateLimit {
     _interval_ms: number;
     _after: number;

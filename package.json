@@ -3,28 +3,29 @@
   "version": "1.0.0",
   "description": "An online piano you can play alone or with others in real-time. MIDI support, 88 keys, velocity sensitive. You can show off your skill or chat while listening to others play.",
   "main": "index.js",
-  "repository": "git@gitea.moe:Hri7566/multiplayerpiano.git",
+  "repository": "git@gitea.moe:the-dev-channel/multiplayerpiano.git",
   "author": "Hri7566",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "start": "node .",
-    "build": "npx tsc",
-    "test": "./test.sh",
-    "test-nodocker": "yarn build && yarn start"
+    "start": "scripts/start.sh",
+    "build": "scripts/build.sh",
+    "test": "scripts/test.sh",
+    "test-nodocker": "scripts/test-nodocker.sh",
+    "start-docker": "scripts/start-docker.sh"
   },
   "devDependencies": {
     "@types/express": "^4.17.13",
     "@types/mongodb": "^4.0.7",
-    "@types/node": "^16.11.2",
-    "@types/ws": "^8.2.0",
-    "typescript": "^4.4.4"
+    "@types/node": "^17.0.21",
+    "@types/ws": "^8.5.3",
+    "typescript": "^4.6.2"
   },
   "dependencies": {
     "chalk": "^4.1.2",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
-    "mongodb": "^4.1.3",
+    "mongodb": "^4.4.1",
     "ws": "^8.2.3"
   }
 }

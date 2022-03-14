@@ -1,3 +1,11 @@
+/**
+ * Multiplayer Piano Server
+ * Copyright (c) The Dev Channel 2020-2022
+ * Licensed under the GPL v3.0 license
+ * 
+ * Server-side client module
+ */
+
 import { IncomingMessage } from 'http';
 import { EventEmitter } from 'stream';
 import * as WebSocket from 'ws';
@@ -241,6 +249,10 @@ class Client extends EventEmitter {
             if (!/^#[0-9a-f]{6}$/i.test(msg.color)) return;
             let cl = msg._id ? this.server.findClientBy_ID(msg._id) : this;
             cl.userset({color: msg.color}, admin);
+        });
+
+        this.on('debug', (msg, admin) => {
+            console.log(this);
         });
     }
 
