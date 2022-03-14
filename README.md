@@ -6,6 +6,10 @@ You can show off your skill or chat while listening to others play.
 
 This is a clone of Brandon's server. This is NOT the original server.
 
+## Shut up and tell me how to start it!
+
+`yarn start-docker`
+
 ## Map
 
 ### static
